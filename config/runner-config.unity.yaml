@@ -1,0 +1,117 @@
+# GitHub Actions Self-Hosted Runner Configuration - UNITY WORKLOAD
+# Optimized for Unity game development and builds
+
+runner:
+  name: "action-runner-unity"
+
+  labels:
+    - "self-hosted"
+    - "Windows"
+    - "X64"
+    - "unity"
+    - "gamedev"
+    - "gpu-enabled"
+
+  group: "Unity-Runners"
+
+paths:
+  runner_home: "C:\\actions-runner-unity"
+  work_directory: "D:\\unity-work"
+  temp_directory: "D:\\unity-temp"
+  log_directory: "C:\\actions-runner-unity\\logs"
+
+resources:
+  max_concurrent_jobs: 2  # Can handle multiple builds
+  cpu:
+    max_cores: 12
+    affinity: ""
+  memory:
+    max_memory_gb: 24
+    reserved_memory_gb: 8
+  disk:
+    min_free_space_gb: 150  # Unity projects are large
+    auto_cleanup: true
+    cleanup_per_job: true
+
+timeouts:
+  job_timeout_minutes: 480  # Unity builds can be slow
+  queue_timeout_minutes: 45
+  step_timeout_minutes: 240
+
+environment:
+  system:
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    UNITY_HUB_PATH: "C:\\Program Files\\Unity\\Hub"
+    ANDROID_SDK_ROOT: "C:\\Android\\SDK"
+    JAVA_HOME: "C:\\Program Files\\Java\\jdk-11"
+  runner:
+    ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT: "1"
+  custom:
+    UNITY_LICENSE_FILE: "C:\\actions-runner-unity\\Unity_v2023.x.ulf"
+    UNITY_SERIAL: ""  # Set via secrets
+
+unity:
+  enabled: true
+  installations:
+    - version: "2022.3.x"
+      path: "C:\\Program Files\\Unity\\Hub\\Editor\\2022.3.x"
+    - version: "2023.2.x"
+      path: "C:\\Program Files\\Unity\\Hub\\Editor\\2023.2.x"
+  license:
+    type: "professional"
+    file_path: "C:\\actions-runner-unity\\Unity_v2023.x.ulf"
+  build:
+    batch_mode: true
+    quit_after_build: true
+    accept_api_update: true
+
+gpu:
+  enabled: true
+  cuda_version: "12.0"
+  vram:
+    reserved_vram_gb: 2
+    max_vram_gb: 8
+  compute_mode: "default"
+
+docker:
+  enabled: false  # Unity typically runs natively
+
+monitoring:
+  enabled: true
+  health_check_interval: 300
+  alert_webhook: ""
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: false
+    high_memory_usage: true
+  thresholds:
+    cpu_warning_percent: 85
+    memory_warning_percent: 85
+    disk_warning_gb: 150
+
+security:
+  firewall_enabled: true
+  allowed_networks:
+    - "192.168.1.0/24"
+    - "10.0.0.0/8"
+  block_external_access: false  # Unity needs asset store access
+  audit_logging: true
+
+logging:
+  level: "info"
+  retention_days: 30
+  max_file_size_mb: 200
+
+maintenance:
+  auto_update: false  # Manual updates to avoid breaking Unity versions
+  maintenance_window: "0 2 * * 0"  # 2 AM Sunday
+  backup_before_update: true
+
+features:
+  experimental:
+    new_job_engine: false
+    job_queueing: true
+  disabled:
+    artifact_upload: false  # Keep artifacts for builds
+    cache: false  # Use cache for Library folder

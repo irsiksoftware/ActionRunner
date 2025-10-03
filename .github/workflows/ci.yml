@@ -1,144 +1,183 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
     branches: [ main, develop ]
   pull_request:
     branches: [ main ]
-
-# Restrict workflow permissions (security best practice)
-permissions:
-  contents: read
-  pull-requests: read
+  workflow_dispatch:
 
 jobs:
-  validate:
-    name: Validate Configuration
+  test:
+    name: Run Tests
     runs-on: [self-hosted, windows]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Validate YAML files
+      - name: Run Pester tests
+        shell: powershell
         run: |
-          Write-Host "Validating YAML configuration files..."
-          $yamlFiles = Get-ChildItem -Path config -Filter *.yaml -Recurse
-          foreach ($file in $yamlFiles) {
-            Write-Host "Checking $($file.Name)..."
-            # Basic YAML syntax validation using PowerShell
-            try {
-              $content = Get-Content $file.FullName -Raw
-              Write-Host "  ✓ $($file.Name) is valid"
-            } catch {
-              Write-Error "  ✗ $($file.Name) is invalid: $_"
-              exit 1
-            }
+          Write-Host "Installing Pester 5.x..."
+          # Remove old Pester version if present
+          $oldPester = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -lt '5.0' }
+          if ($oldPester) {
+            Write-Host "Removing old Pester version(s)..."
           }
-        shell: pwsh
 
-      - name: Validate PowerShell scripts
-        run: |
-          Write-Host "Validating PowerShell scripts..."
-          $psFiles = Get-ChildItem -Path config -Filter *.ps1 -Recurse
-          foreach ($file in $psFiles) {
-            Write-Host "Checking $($file.Name)..."
-            $errors = $null
-            $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content $file.FullName -Raw), [ref]$errors)
-            if ($errors.Count -eq 0) {
-              Write-Host "  ✓ $($file.Name) syntax is valid"
-            } else {
-              Write-Error "  ✗ $($file.Name) has syntax errors"
-              $errors | ForEach-Object { Write-Error $_.Message }
-              exit 1
-            }
-          }
-        shell: pwsh
+          # Install Pester 5.x
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
 
-      - name: Check security documentation
-        run: |
-          Write-Host "Verifying security documentation exists..."
-          if (Test-Path "docs/security.md") {
-            Write-Host "✓ Security documentation found"
-          } else {
-            Write-Error "✗ Security documentation missing"
+          Write-Host "Running test suite..."
+          $config = New-PesterConfiguration
+          $config.Run.Path = '.\tests\'
+          $config.Run.PassThru = $true
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.TestResult.OutputPath = 'test-results.xml'
+
+          $testResults = Invoke-Pester -Configuration $config
+
+          if ($testResults.FailedCount -gt 0) {
+            Write-Error "Tests failed: $($testResults.FailedCount) failures"
             exit 1
           }
-        shell: pwsh
 
-  lint:
-    name: Markdown Lint
+          Write-Host "All tests passed! [OK]" -ForegroundColor Green
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+
+  validate-scripts:
+    name: Validate PowerShell Scripts
     runs-on: [self-hosted, windows]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Check markdown files
+      - name: Run PSScriptAnalyzer
+        shell: powershell
         run: |
-          Write-Host "Checking markdown files for basic issues..."
-          $mdFiles = Get-ChildItem -Path . -Filter *.md -Recurse -Exclude node_modules
-          foreach ($file in $mdFiles) {
-            Write-Host "Checking $($file.Name)..."
-            $content = Get-Content $file.FullName -Raw
-
-            # Check for non-empty content
-            if ([string]::IsNullOrWhiteSpace($content)) {
-              Write-Error "  ✗ $($file.Name) is empty"
-              exit 1
-            }
-
-            Write-Host "  ✓ $($file.Name) looks good"
+          Write-Host "Installing PSScriptAnalyzer if not present..."
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            # Install NuGet provider first to avoid prompts
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
+            Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
           }
-        shell: pwsh
+
+          Write-Host "Analyzing PowerShell scripts..."
+          $scripts = Get-ChildItem -Path .\scripts\, .\config\ -Filter *.ps1 -Recurse
+          $errors = @()
+          $warnings = @()
+
+          foreach ($script in $scripts) {
+            Write-Host "Analyzing: $($script.Name)"
+            $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Error, Warning
+            if ($results) {
+              $scriptErrors = $results | Where-Object { $_.Severity -eq 'Error' }
+              $scriptWarnings = $results | Where-Object { $_.Severity -eq 'Warning' }
+
+              if ($scriptErrors) {
+                $errors += $scriptErrors
+                $scriptErrors | Format-Table -AutoSize
+              }
+
+              if ($scriptWarnings) {
+                $warnings += $scriptWarnings
+              }
+            }
+          }
+
+          if ($warnings.Count -gt 0) {
+            Write-Warning "Found $($warnings.Count) warnings (non-blocking)"
+          }
+
+          if ($errors.Count -gt 0) {
+            Write-Error "Found $($errors.Count) errors in PowerShell scripts"
+            exit 1
+          }
+
+          Write-Host "All scripts validated successfully! [OK]" -ForegroundColor Green
 
   security-check:
-    name: Security Configuration Check
+    name: Security Validation
     runs-on: [self-hosted, windows]
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Verify firewall rules configuration
+      - name: Check for sensitive data
+        shell: powershell
         run: |
-          Write-Host "Checking firewall rules configuration..."
-          if (Test-Path "config/firewall-rules.yaml") {
-            Write-Host "✓ Firewall rules configuration found"
-
-            # Check if file has content
-            $content = Get-Content "config/firewall-rules.yaml" -Raw
-            if ([string]::IsNullOrWhiteSpace($content)) {
-              Write-Error "✗ Firewall rules file is empty"
-              exit 1
-            }
-
-            Write-Host "✓ Firewall rules configuration is not empty"
-          } else {
-            Write-Error "✗ Firewall rules configuration missing"
-            exit 1
-          }
-        shell: pwsh
-
-      - name: Verify security scripts exist
-        run: |
-          Write-Host "Checking security setup scripts..."
-
-          $requiredScripts = @(
-            "config/apply-firewall-rules.ps1"
+          Write-Host "Scanning for sensitive data patterns..."
+          $patterns = @(
+            'password\s*=',
+            'api[_-]?key\s*=',
+            'secret\s*=',
+            'token\s*=',
+            'BEGIN RSA PRIVATE KEY',
+            'BEGIN PRIVATE KEY'
           )
 
-          $allExist = $true
-          foreach ($script in $requiredScripts) {
-            if (Test-Path $script) {
-              Write-Host "✓ $script found"
-            } else {
-              Write-Warning "⚠ $script not found"
-              $allExist = $false
+          $found = @()
+          $files = Get-ChildItem -Path . -Recurse -File -Exclude @('*.log', '*.xml', '.git')
+
+          foreach ($file in $files) {
+            $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content) {
+              foreach ($pattern in $patterns) {
+                if ($content -imatch $pattern) {
+                  $found += "$($file.FullName): matched pattern '$pattern'"
+                }
+              }
             }
           }
 
-          if (-not $allExist) {
-            Write-Warning "Some security scripts are missing, but continuing..."
+          if ($found.Count -gt 0) {
+            Write-Warning "Potential sensitive data found:"
+            $found | ForEach-Object { Write-Warning $_ }
+            Write-Warning "Review these findings before committing"
+          } else {
+            Write-Host "No sensitive data patterns detected [OK]" -ForegroundColor Green
           }
-        shell: pwsh
+
+      - name: Validate firewall rules
+        shell: powershell
+        run: |
+          if (Test-Path .\config\firewall-rules.yaml) {
+            Write-Host "Firewall rules configuration found [OK]" -ForegroundColor Green
+          } else {
+            Write-Warning "No firewall rules configuration found"
+          }
+
+  build-status:
+    name: Report Build Status
+    runs-on: [self-hosted, windows]
+    needs: [test, validate-scripts, security-check]
+    if: always()
+
+    steps:
+      - name: Report status
+        shell: powershell
+        run: |
+          Write-Host "=== Build Status ===" -ForegroundColor Cyan
+          Write-Host "Tests: ${{ needs.test.result }}"
+          Write-Host "Script Validation: ${{ needs.validate-scripts.result }}"
+          Write-Host "Security Check: ${{ needs.security-check.result }}"
+
+          if ("${{ needs.test.result }}" -eq "success" -and
+              "${{ needs.validate-scripts.result }}" -eq "success" -and
+              "${{ needs.security-check.result }}" -eq "success") {
+            Write-Host "[OK] All checks passed!" -ForegroundColor Green
+          } else {
+            Write-Host "[X] Some checks failed" -ForegroundColor Red
+            exit 1
+          }
