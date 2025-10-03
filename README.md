@@ -18,7 +18,7 @@ mkdir C:\actions-runner
 cd C:\actions-runner
 
 # Download the latest runner (check GitHub for current version)
-Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-win-x64-2.311.0.zip -OutFile actions-runner-win-x64.zip
+Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.328.0/actions-runner-win-x64-2.328.0.zip -OutFile actions-runner-win-x64.zip
 
 # Extract
 Add-Type -AssemblyName System.IO.Compression.FileSystem
@@ -29,8 +29,15 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 
 **Before configuring the runner, implement security controls:**
 
+Clone this repository and run the security scripts:
+
 ```powershell
 # Run as Administrator
+cd C:\
+
+# Clone the ActionRunner repository
+git clone https://github.com/DakotaIrsik/ActionRunner.git
+cd ActionRunner
 
 # Step 1: Create secure service account with limited permissions
 .\config\runner-user-setup.ps1
@@ -38,7 +45,7 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 # Step 2: Apply firewall rules for network isolation
 .\config\apply-firewall-rules.ps1
 
-# Step 3: Review and customize security settings
+# Step 3: Review security settings
 notepad .\docs\security.md
 notepad .\config\firewall-rules.yaml
 ```
@@ -47,7 +54,9 @@ notepad .\config\firewall-rules.yaml
 
 ```powershell
 # Configure the runner (use the service account created above)
-.\config.cmd --url https://github.com/YOUR-ORG/YOUR-REPO --token YOUR-TOKEN --runasservice
+# Replace YOUR-REPO with your target repository name (e.g., qiflow, gifdistributor)
+# Get YOUR-TOKEN from GitHub: Settings → Actions → Runners → New self-hosted runner
+.\config.cmd --url https://github.com/DakotaIrsik/YOUR-REPO --token YOUR-TOKEN --runasservice
 
 # When prompted, use the GitHubRunner account created by runner-user-setup.ps1
 ```
@@ -148,6 +157,7 @@ jobs:
 See the workflows in this repository for complete examples:
 - **[.github/workflows/docker-test.yml](.github/workflows/docker-test.yml)** - Docker isolation testing
 - **[.github/workflows/runner-health.yml](.github/workflows/runner-health.yml)** - Runner health monitoring
+- **[.github/workflows/workspace-cleanup.yml](.github/workflows/workspace-cleanup.yml)** - Automated workspace cleanup
 
 ### Best Practices
 
@@ -156,6 +166,78 @@ See the workflows in this repository for complete examples:
 3. **Avoid UTF-8 special characters**: Use `[OK]` instead of `✓` in PowerShell output
 4. **Clean up after jobs**: Use `if: always()` for cleanup steps
 5. **Use Docker for untrusted code**: Isolate builds in containers when possible
+
+## Jesus Project Runner Setup
+
+For the **Jesus MCP Agentic AI Platform** project, which requires Node.js, Python, and Docker support, use the development stack installation script:
+
+### Quick Setup (Linux/Ubuntu)
+
+```bash
+# 1. Clone this repository
+git clone https://github.com/DakotaIrsik/ActionRunner.git
+cd ActionRunner
+
+# 2. Install base runner
+sudo ./scripts/install-runner.sh \
+  --org-or-repo "DynamicEndpoints" \
+  --token "ghp_YourTokenHere" \
+  --is-org \
+  --install-service
+
+# 3. Install Jesus project development stack
+sudo ./scripts/install-runner-devstack.sh
+
+# 4. Verify installation
+node --version     # Should show v20.x
+pnpm --version     # Should show 9.x
+python3 --version  # Should show 3.11.x
+docker --version
+docker buildx version
+```
+
+### Stack Components
+
+The development stack installation script (`install-runner-devstack.sh`) installs:
+
+- **Node.js 20.x** with **pnpm 9.x** for JavaScript/TypeScript builds
+- **Python 3.11** with **pip**, **pip-audit**, and **detect-secrets** for security scanning
+- **Docker Engine** with **BuildKit** support for containerized builds
+- **OSV Scanner** for vulnerability scanning
+
+### Usage in Jesus Workflows
+
+Update your Jesus project workflows to use the self-hosted runner:
+
+```yaml
+# .github/workflows/ci.yml
+jobs:
+  build:
+    runs-on: [self-hosted, linux, nodejs, python, docker]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v2
+        with:
+          version: 9.15.0
+
+      - name: Install and build
+        run: |
+          pnpm install
+          pnpm build
+          pnpm test
+```
+
+### Documentation
+
+See **[docs/jesus-project-runner-setup.md](docs/jesus-project-runner-setup.md)** for detailed setup instructions, troubleshooting, and platform-specific guidance.
 
 ## Security Features
 
@@ -170,13 +252,10 @@ This repository includes comprehensive security controls:
 
 ## Documentation
 
-- **[Security Guide](docs/security.md)**: Comprehensive security documentation
-  - Security risks and mitigation strategies
-  - Network isolation and firewall configuration
-  - Token management and rotation
-  - Container isolation with Docker
-  - Monitoring and incident response
-  - Compliance considerations
+- **[Security Guide](docs/security.md)**: Comprehensive security documentation covering risks, network isolation, token management, container isolation, monitoring, and compliance
+- **[Maintenance Guide](docs/maintenance.md)**: Workspace cleanup, storage management, and regular maintenance procedures
+- **[Hardware Specifications](docs/hardware-specs.md)**: Recommended hardware configurations for self-hosted runners
+- **[Label Strategy](docs/label-strategy.md)**: Runner labeling strategy for workload routing and optimization
 
 ## Configuration Files
 
