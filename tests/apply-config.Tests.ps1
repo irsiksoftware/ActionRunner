@@ -67,13 +67,13 @@ Describe "apply-config.ps1 Tests" {
 
         It "Should error when config file doesn't exist" {
             $invalidPath = Join-Path $testConfigDir "nonexistent.yaml"
-            { & $scriptPath -ConfigPath $invalidPath -Validate } | Should -Throw
+            { & $scriptPath -ConfigFile $invalidPath -Validate } | Should -Throw
         }
     }
 
     Context "Configuration Validation" {
         It "Should validate a valid configuration" {
-            { & $scriptPath -ConfigPath $testConfigFile -Validate } | Should -Not -Throw
+            { & $scriptPath -ConfigFile $testConfigFile -Validate } | Should -Not -Throw
         }
 
         It "Should reject configuration missing required sections" {
@@ -84,18 +84,18 @@ runner:
             $invalidFile = Join-Path $testConfigDir "invalid.yaml"
             Set-Content -Path $invalidFile -Value $invalidConfig
 
-            { & $scriptPath -ConfigPath $invalidFile -Validate } | Should -Throw
+            { & $scriptPath -ConfigFile $invalidFile -Validate } | Should -Throw
         }
     }
 
     Context "Dry Run Mode" {
         It "Should run in dry-run mode without errors" {
-            { & $scriptPath -ConfigPath $testConfigFile -DryRun } | Should -Not -Throw
+            { & $scriptPath -ConfigFile $testConfigFile -DryRun } | Should -Not -Throw
         }
 
         It "Should not modify system when in dry-run mode" {
             $envBefore = [Environment]::GetEnvironmentVariable('TEST_VAR', 'Machine')
-            & $scriptPath -ConfigPath $testConfigFile -DryRun
+            & $scriptPath -ConfigFile $testConfigFile -DryRun
             $envAfter = [Environment]::GetEnvironmentVariable('TEST_VAR', 'Machine')
 
             $envBefore | Should -Be $envAfter
@@ -110,7 +110,7 @@ runner:
             # Test that backup is attempted
             InModuleScope -ScriptBlock {
                 param($ConfigPath)
-                Backup-Configuration -ConfigPath $ConfigPath
+                Backup-Configuration -ConfigFile $ConfigPath
             } -ArgumentList $testConfigFile
         }
     }
@@ -136,7 +136,7 @@ runner:
             $commentFile = Join-Path $testConfigDir "comments.yaml"
             Set-Content -Path $commentFile -Value $configWithComments
 
-            { & $scriptPath -ConfigPath $commentFile -Validate } | Should -Not -Throw
+            { & $scriptPath -ConfigFile $commentFile -Validate } | Should -Not -Throw
         }
     }
 
@@ -144,14 +144,14 @@ runner:
         It "Should validate dev configuration" {
             $devConfig = Join-Path $configDir "runner-config.dev.yaml"
             if (Test-Path $devConfig) {
-                { & $scriptPath -ConfigPath $devConfig -Validate } | Should -Not -Throw
+                { & $scriptPath -ConfigFile $devConfig -Validate } | Should -Not -Throw
             }
         }
 
         It "Should validate prod configuration" {
             $prodConfig = Join-Path $configDir "runner-config.prod.yaml"
             if (Test-Path $prodConfig) {
-                { & $scriptPath -ConfigPath $prodConfig -Validate } | Should -Not -Throw
+                { & $scriptPath -ConfigFile $prodConfig -Validate } | Should -Not -Throw
             }
         }
     }
@@ -160,21 +160,21 @@ runner:
         It "Should validate GPU workload profile" {
             $gpuConfig = Join-Path $configDir "runner-config.gpu.yaml"
             if (Test-Path $gpuConfig) {
-                { & $scriptPath -ConfigPath $gpuConfig -Validate } | Should -Not -Throw
+                { & $scriptPath -ConfigFile $gpuConfig -Validate } | Should -Not -Throw
             }
         }
 
         It "Should validate Unity workload profile" {
             $unityConfig = Join-Path $configDir "runner-config.unity.yaml"
             if (Test-Path $unityConfig) {
-                { & $scriptPath -ConfigPath $unityConfig -Validate } | Should -Not -Throw
+                { & $scriptPath -ConfigFile $unityConfig -Validate } | Should -Not -Throw
             }
         }
 
         It "Should validate general workload profile" {
             $generalConfig = Join-Path $configDir "runner-config.general.yaml"
             if (Test-Path $generalConfig) {
-                { & $scriptPath -ConfigPath $generalConfig -Validate } | Should -Not -Throw
+                { & $scriptPath -ConfigFile $generalConfig -Validate } | Should -Not -Throw
             }
         }
     }
@@ -195,7 +195,7 @@ resources:
             Set-Content -Path $highMemFile -Value $highMemConfig
 
             # Should still validate but with warnings
-            { & $scriptPath -ConfigPath $highMemFile -Validate } | Should -Not -Throw
+            { & $scriptPath -ConfigFile $highMemFile -Validate } | Should -Not -Throw
         }
     }
 

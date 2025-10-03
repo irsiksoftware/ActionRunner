@@ -106,7 +106,7 @@ Describe "install-runner.ps1" {
         }
 
         It "Should set ErrorActionPreference to Stop" {
-            $scriptContent | Should -Match '\$ErrorActionPreference\s*=\s*["\']Stop["\']'
+            $scriptContent | Should -Match "`\$ErrorActionPreference\s*=\s*[`"`']Stop[`"`']"
         }
 
         It "Should have try-catch blocks" {
