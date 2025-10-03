@@ -157,15 +157,14 @@ on: [push, pull_request]
 jobs:
   test-untrusted:
     runs-on: [self-hosted, windows, docker]
+    container:
+      image: actionrunner/python:latest
+      options: --cpus 2 --memory 2g
     steps:
       - uses: actions/checkout@v4
 
       - name: Run tests in isolated container
-        run: |
-          .\scripts\run-in-docker.ps1 `
-            -Image "actionrunner/python:latest" `
-            -Command "pytest tests/" `
-            -ResourceLimits
+        run: pytest tests/
 ```
 
 ### GPU-Accelerated Workloads
@@ -233,11 +232,15 @@ ActionRunner/
 │   └── apply-firewall-rules.ps1
 ├── scripts/                    # Management scripts
 │   ├── setup-docker.ps1       # Docker environment setup
-│   ├── run-in-docker.ps1      # Execute in containers
-│   ├── cleanup-docker.ps1     # Container cleanup
+│   ├── setup-runner.ps1       # Runner installation
 │   ├── collect-logs.ps1       # Log aggregation
 │   ├── rotate-logs.ps1        # Log rotation
 │   └── analyze-logs.ps1       # Log analysis
+├── docker/                     # Container definitions
+│   ├── Dockerfile.unity       # Unity build container
+│   ├── Dockerfile.dotnet      # .NET build container
+│   ├── Dockerfile.python      # Python test container
+│   └── Dockerfile.gpu         # GPU-enabled container
 ├── logs/                       # Audit trail and logs
 ├── tests/                      # Pester test suite
 └── docs/                       # Detailed documentation
@@ -263,8 +266,8 @@ Get-Service actions.runner.*
 .\scripts\rotate-logs.ps1
 
 # Update tokens (regenerate in GitHub settings)
-# Clean up Docker
-.\scripts\cleanup-docker.ps1
+# Clean up Docker containers and images
+docker system prune -a -f
 ```
 
 ### As Needed
@@ -294,7 +297,7 @@ Get-Service actions.runner.* | Restart-Service
 **Docker issues?**
 ```powershell
 docker ps -a  # Check container status
-.\scripts\cleanup-docker.ps1  # Clean up
+docker system prune -f  # Clean up containers
 ```
 
 ## Documentation
