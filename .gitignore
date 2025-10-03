@@ -1,0 +1,129 @@
+# Runner tokens and secrets
+*.token
+*.credentials
+.env
+.env.local
+config/tokens/
+
+# Local configuration overrides
+config/local/
+*.local.ps1
+*.local.yaml
+
+# Runner working directories
+_work/
+_diag/
+actions-runner/
+
+# Temporary files
+*.tmp
+*.temp
+*.log
+*.cache
+
+# Build artifacts
+build/
+dist/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# OS-specific files
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+.directory
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.vs/
+
+# Docker
+.dockerignore
+
+# Test results
+TestResults/
+*.trx
+coverage/
+
+# Log files
+logs/*.log
+logs/*.txt
+!logs/.gitkeep
+
+# Collected logs (keep structure but not content)
+logs/collected/*
+!logs/collected/.gitkeep
+
+# Package manager files
+node_modules/
+package-lock.json
+.npm/
+.yarn/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.pytest_cache/
+.coverage
+htmlcov/
+venv/
+env/
+ENV/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.nupkg
+
+# Unity
+[Ll]ibrary/
+[Tt]emp/
+[Oo]bj/
+[Bb]uild/
+[Bb]uilds/
+[Ll]ogs/
+[Uu]ser[Ss]ettings/
+*.csproj
+*.unityproj
+*.sln
+*.pidb
+*.booproj
+*.svd
+*.pdb
+*.mdb
+*.opendb
+*.VC.db
+
+# Sensitive data
+*.key
+*.pem
+*.cert
+*.p12
+credentials.json
+secrets.yaml
+
+# Backup files
+*.bak
+*.backup
+*~
