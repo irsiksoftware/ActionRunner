@@ -1,0 +1,110 @@
+# GitHub Actions Self-Hosted Runner Configuration - GPU WORKLOAD
+# Optimized for GPU-intensive workloads (ML, rendering, compute)
+
+runner:
+  name: "action-runner-gpu"
+
+  labels:
+    - "self-hosted"
+    - "Windows"
+    - "X64"
+    - "gpu"
+    - "cuda"
+    - "nvidia"
+    - "ml"
+
+  group: "GPU-Runners"
+
+paths:
+  runner_home: "C:\\actions-runner-gpu"
+  work_directory: "D:\\gpu-work"
+  temp_directory: "D:\\gpu-temp"
+  log_directory: "C:\\actions-runner-gpu\\logs"
+
+resources:
+  max_concurrent_jobs: 1  # GPU jobs typically exclusive
+  cpu:
+    max_cores: 0  # All cores available
+    affinity: ""
+  memory:
+    max_memory_gb: 0  # Unlimited for ML workloads
+    reserved_memory_gb: 8
+  disk:
+    min_free_space_gb: 200  # Large datasets
+    auto_cleanup: true
+    cleanup_per_job: true
+
+timeouts:
+  job_timeout_minutes: 720  # Longer for training jobs
+  queue_timeout_minutes: 60
+  step_timeout_minutes: 480
+
+environment:
+  system:
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    PYTHON_PATH: "C:\\Python311"
+    CUDA_PATH: "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0"
+    CUDNN_PATH: "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0"
+    PATH: "C:\\Program Files\\NVIDIA GPU Computing Toolkit\\CUDA\\v12.0\\bin;%PATH%"
+  runner:
+    ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT: "1"
+  custom:
+    TF_FORCE_GPU_ALLOW_GROWTH: "true"
+    PYTORCH_CUDA_ALLOC_CONF: "max_split_size_mb:512"
+
+gpu:
+  enabled: true
+  cuda_version: "12.0"
+  vram:
+    reserved_vram_gb: 2
+    max_vram_gb: 0  # No limit
+  compute_mode: "default"
+
+docker:
+  enabled: true
+  socket_path: "npipe:////./pipe/docker_engine"
+  isolation_mode: "process"
+  container_limits:
+    memory_gb: 32
+    cpu_cores: 16
+  auto_cleanup_containers: true
+  auto_cleanup_images: false  # Keep ML images
+
+monitoring:
+  enabled: true
+  health_check_interval: 180
+  alert_webhook: ""
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: false  # Expected for GPU workloads
+    high_memory_usage: false
+  thresholds:
+    cpu_warning_percent: 90
+    memory_warning_percent: 90
+    disk_warning_gb: 200
+
+security:
+  firewall_enabled: true
+  allowed_networks:
+    - "10.0.0.0/8"
+  block_external_access: false  # ML jobs may download models
+  audit_logging: true
+
+logging:
+  level: "info"
+  retention_days: 14
+  max_file_size_mb: 500
+
+maintenance:
+  auto_update: false  # Manual updates to avoid disrupting training
+  maintenance_window: "0 3 * * 6"  # 3 AM Saturday
+  backup_before_update: true
+
+features:
+  experimental:
+    new_job_engine: false
+    job_queueing: true
+  disabled:
+    artifact_upload: false
+    cache: false

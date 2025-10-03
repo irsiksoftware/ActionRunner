@@ -1,0 +1,122 @@
+# GitHub Actions Self-Hosted Runner Configuration - GENERAL PURPOSE
+# Balanced configuration for mixed workloads
+
+runner:
+  name: "action-runner-general"
+
+  labels:
+    - "self-hosted"
+    - "Windows"
+    - "X64"
+    - "general"
+
+  group: "Default"
+
+paths:
+  runner_home: "C:\\actions-runner"
+  work_directory: "C:\\actions-runner\\_work"
+  temp_directory: "C:\\Temp"
+  log_directory: "C:\\actions-runner\\logs"
+
+resources:
+  max_concurrent_jobs: 3
+  cpu:
+    max_cores: 8
+    affinity: ""
+  memory:
+    max_memory_gb: 16
+    reserved_memory_gb: 4
+  disk:
+    min_free_space_gb: 100
+    auto_cleanup: true
+    cleanup_per_job: true
+
+timeouts:
+  job_timeout_minutes: 360
+  queue_timeout_minutes: 30
+  step_timeout_minutes: 60
+
+environment:
+  system:
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    JAVA_HOME: "C:\\Program Files\\Java\\jdk-17"
+    PYTHON_PATH: "C:\\Python311"
+    NODE_PATH: "C:\\Program Files\\nodejs"
+    DOCKER_HOST: "npipe:////./pipe/docker_engine"
+  runner:
+    ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT: "1"
+    RUNNER_ALLOW_RUNASROOT: "0"
+  custom: {}
+
+gpu:
+  enabled: false
+
+unity:
+  enabled: false
+
+docker:
+  enabled: true
+  socket_path: "npipe:////./pipe/docker_engine"
+  isolation_mode: "process"
+  container_limits:
+    memory_gb: 8
+    cpu_cores: 4
+  auto_cleanup_containers: true
+  auto_cleanup_images: true
+
+monitoring:
+  enabled: true
+  health_check_interval: 300
+  alert_webhook: ""
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: true
+    high_memory_usage: true
+    job_failure: false
+  thresholds:
+    cpu_warning_percent: 80
+    cpu_critical_percent: 95
+    memory_warning_percent: 85
+    memory_critical_percent: 95
+    disk_warning_gb: 150
+    disk_critical_gb: 100
+
+security:
+  firewall_enabled: true
+  allowed_networks:
+    - "192.168.1.0/24"
+    - "10.0.0.0/8"
+  block_external_access: false
+  audit_logging: true
+  audit_log_path: "C:\\actions-runner\\logs\\audit.log"
+
+logging:
+  level: "info"
+  retention_days: 30
+  max_file_size_mb: 100
+  rotation_enabled: true
+  console_output: true
+
+maintenance:
+  auto_update: true
+  update_check_interval_hours: 24
+  backup_before_update: true
+  maintenance_window: "0 2 * * 0"  # 2 AM every Sunday
+
+webhooks:
+  endpoints:
+    - name: "notifications"
+      url: ""
+      events:
+        - runner_stopped
+        - job_failed
+        - health_check_failed
+
+features:
+  experimental:
+    new_job_engine: false
+    job_queueing: true
+  disabled:
+    artifact_upload: false
+    cache: false

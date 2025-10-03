@@ -1,0 +1,67 @@
+# GitHub Actions Self-Hosted Runner Configuration - PRODUCTION
+# Production environment configuration with strict security and resource limits
+
+runner:
+  name: "action-runner-prod"
+
+  labels:
+    - "self-hosted"
+    - "Windows"
+    - "X64"
+    - "production"
+    - "gpu-enabled"
+
+  paths:
+    work_dir: "C:\\actions-runner\\_work"
+    tools_dir: "C:\\actions-runner\\_tools"
+    temp_dir: "C:\\actions-runner\\_temp"
+    logs_dir: "C:\\actions-runner\\_logs"
+    config_backup_dir: "C:\\actions-runner\\config-backups"
+
+  resources:
+    max_cpu_cores: 16
+    max_memory_gb: 32
+    max_disk_space_gb: 200
+    reserved_cpu_percent: 15
+    reserved_memory_gb: 4
+
+  timeouts:
+    job_timeout: 480
+    idle_timeout: 30
+    cleanup_timeout: 20
+    health_check_interval: 3
+
+  environment:
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    JAVA_HOME: "C:\\Program Files\\Java\\jdk-17"
+    PYTHON_PATH: "C:\\Python311"
+    NODE_PATH: "C:\\Program Files\\nodejs"
+    DOCKER_HOST: "npipe:////./pipe/docker_engine"
+    ACTIONS_RUNNER_HOOK_JOB_STARTED: "C:\\actions-runner\\hooks\\job-started.ps1"
+    ACTIONS_RUNNER_HOOK_JOB_COMPLETED: "C:\\actions-runner\\hooks\\job-completed.ps1"
+    RUNNER_ALLOW_RUNASROOT: "0"
+
+  features:
+    enable_docker_isolation: true
+    enable_logging: true
+    enable_health_checks: true
+    enable_auto_updates: true
+    enable_metrics_collection: true
+    enable_workspace_cleanup: true
+
+  security:
+    allow_privileged_containers: false
+    enforce_code_signing: true
+    scan_dependencies: true
+    quarantine_untrusted_code: true
+    max_concurrent_jobs: 5
+
+  maintenance:
+    enabled: true
+    window_start: "02:00"
+    window_end: "05:00"
+    days:
+      - "Sunday"
+      - "Tuesday"
+      - "Thursday"
+    auto_restart: true
