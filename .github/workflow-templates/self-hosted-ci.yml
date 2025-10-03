@@ -1,0 +1,65 @@
+name: Self-Hosted CI Template
+
+on:
+  push:
+    branches: [ main, develop, feature/* ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Full history for better analysis
+
+      - name: Setup environment
+        shell: powershell
+        run: |
+          Write-Host "Runner name: $env:RUNNER_NAME"
+          Write-Host "Runner OS: $env:RUNNER_OS"
+          Write-Host "Workspace: $env:GITHUB_WORKSPACE"
+
+      - name: Build
+        shell: powershell
+        run: |
+          Write-Host "Building application..."
+          # Add your build commands here
+          # Examples:
+          # dotnet build
+          # npm install && npm run build
+          # msbuild /p:Configuration=Release
+
+      - name: Run tests
+        shell: powershell
+        run: |
+          Write-Host "Running tests..."
+          # Add your test commands here
+          # Examples:
+          # dotnet test
+          # npm test
+          # Invoke-Pester
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: |
+            **/TestResults/**
+            **/test-results/**
+          retention-days: 30
+          if-no-files-found: ignore
+
+      - name: Cleanup workspace
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "Cleaning up workspace..."
+          # Clean up temporary files, caches, etc.
+          # This helps keep runner disk space under control
