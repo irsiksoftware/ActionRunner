@@ -1,0 +1,76 @@
+name: Workspace Cleanup
+
+on:
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Run in dry-run mode (preview only)'
+        required: false
+        type: boolean
+        default: false
+      days_old:
+        description: 'Clean files older than N days'
+        required: false
+        type: number
+        default: 7
+      min_free_space_gb:
+        description: 'Minimum free space threshold (GB)'
+        required: false
+        type: number
+        default: 500
+
+jobs:
+  cleanup:
+    name: Clean Workspace
+    runs-on: self-hosted
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workspace cleanup
+        shell: powershell
+        run: |
+          $dryRun = if ("${{ github.event.inputs.dry_run }}" -eq "true") { "-DryRun" } else { "" }
+          $daysOld = if ("${{ github.event.inputs.days_old }}") { "${{ github.event.inputs.days_old }}" } else { "7" }
+          $minFreeSpace = if ("${{ github.event.inputs.min_free_space_gb }}") { "${{ github.event.inputs.min_free_space_gb }}" } else { "500" }
+
+          Write-Host "Running workspace cleanup..."
+          Write-Host "DryRun: ${{ github.event.inputs.dry_run }}"
+          Write-Host "DaysOld: $daysOld"
+          Write-Host "MinFreeSpaceGB: $minFreeSpace"
+
+          & "${{ github.workspace }}\scripts\cleanup-workspace.ps1" `
+            -DaysOld $daysOld `
+            -MinFreeSpaceGB $minFreeSpace `
+            $dryRun
+
+      - name: Upload cleanup logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: cleanup-logs-${{ github.run_number }}
+          path: logs/cleanup.log
+          retention-days: 30
+          if-no-files-found: warn
+
+      - name: Check disk space after cleanup
+        shell: powershell
+        run: |
+          Write-Host "`n=== Disk Space Report ==="
+          Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 } | ForEach-Object {
+            $freeGB = [math]::Round($_.Free / 1GB, 2)
+            $totalGB = [math]::Round(($_.Free + $_.Used) / 1GB, 2)
+            $percentFree = [math]::Round(($_.Free / ($_.Free + $_.Used)) * 100, 2)
+            Write-Host "Drive $($_.Name): $freeGB GB free of $totalGB GB ($percentFree% free)"
+          }
+
+      - name: Notify on failure
+        if: failure()
+        shell: powershell
+        run: |
+          Write-Host "::error::Workspace cleanup failed. Please check the logs for details."
