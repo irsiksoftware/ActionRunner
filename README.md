@@ -155,9 +155,9 @@ jobs:
 ### Example Workflows
 
 See the workflows in this repository for complete examples:
-- **[.github/workflows/docker-test.yml](.github/workflows/docker-test.yml)** - Docker isolation testing
-- **[.github/workflows/runner-health.yml](.github/workflows/runner-health.yml)** - Runner health monitoring
-- **[.github/workflows/workspace-cleanup.yml](.github/workflows/workspace-cleanup.yml)** - Automated workspace cleanup
+- **[Docker Isolated Testing](.github/workflows/docker-test.yml)** - Docker container isolation testing
+- **[Runner Health Check](.github/workflows/runner-health.yml)** - Automated runner health monitoring
+- **[Workspace Cleanup](.github/workflows/workspace-cleanup.yml)** - Automated workspace cleanup
 
 ### Best Practices
 
