@@ -175,8 +175,8 @@ function Test-ConfigurationStructure {
 
     # Report validation results
     if ($errors.Count -gt 0) {
-        foreach ($error in $errors) {
-            Write-Log $error "ERROR"
+        foreach ($errorMsg in $errors) {
+            Write-Log $errorMsg "ERROR"
         }
         return $false
     }
