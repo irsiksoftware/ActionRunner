@@ -58,14 +58,14 @@ Run the automated setup script:
 
 ```powershell
 # Run as Administrator
-.\scripts\setup-docker.ps1 -InstallDocker -ConfigureGPU -SetResourceLimits
+.\scripts\setup-docker.ps1 -ConfigureGPU -MaxCPUs 8 -MaxMemoryGB 16
 ```
 
 This script will:
-1. Install Docker Desktop for Windows (if not present)
+1. Install Docker Desktop for Windows (unless -SkipInstall is used)
 2. Configure WSL2 backend
-3. Set up GPU passthrough for CUDA containers (if NVIDIA GPU detected)
-4. Configure resource limits
+3. Set up GPU passthrough for CUDA containers (if -ConfigureGPU is specified and NVIDIA GPU detected)
+4. Configure resource limits (via -MaxCPUs and -MaxMemoryGB parameters)
 5. Build all container images
 
 ### Manual Configuration
@@ -118,9 +118,45 @@ sudo nvidia-ctk runtime configure --runtime=docker
 
 ## Usage
 
-### Running Jobs in Containers
+### Running Jobs with PowerShell Scripts
 
-#### Basic Container Execution
+ActionRunner provides PowerShell scripts for easy job execution:
+
+#### Basic Job Execution
+
+```powershell
+# Run a Python test job
+.\scripts\run-in-docker.ps1 `
+  -Environment python `
+  -WorkspacePath "C:\repos\project" `
+  -Command "pytest tests/"
+
+# Run a .NET build
+.\scripts\run-in-docker.ps1 `
+  -Environment dotnet `
+  -WorkspacePath "C:\repos\app" `
+  -Command "dotnet build"
+
+# Run with custom resource limits
+.\scripts\run-in-docker.ps1 `
+  -Environment python `
+  -WorkspacePath "C:\repos\project" `
+  -Command "pytest tests/" `
+  -MaxCPUs 8 `
+  -MaxMemoryGB 16 `
+  -TimeoutMinutes 120
+
+# Network isolated execution (for untrusted code)
+.\scripts\run-in-docker.ps1 `
+  -Environment python `
+  -WorkspacePath "C:\repos\untrusted" `
+  -Command "python script.py" `
+  -NetworkIsolated
+```
+
+### Running Jobs Manually with Docker
+
+For direct Docker access:
 
 ```powershell
 # Run a Python test job
@@ -174,21 +210,31 @@ docker run --rm \
 
 ### Container Management
 
-#### List Running Containers
+#### Using Cleanup Script
 
 ```powershell
+# Basic cleanup (dangling images only)
+.\scripts\cleanup-docker.ps1
+
+# Aggressive cleanup (all unused images)
+.\scripts\cleanup-docker.ps1 -All
+
+# Skip confirmation prompt
+.\scripts\cleanup-docker.ps1 -Force
+
+# Custom age threshold
+.\scripts\cleanup-docker.ps1 -OlderThanDays 14
+```
+
+#### Manual Container Management
+
+```powershell
+# List running containers
 docker ps
-```
 
-#### Stop All Containers
+# Stop all ActionRunner containers
+docker stop $(docker ps -q --filter "name=actionrunner-")
 
-```powershell
-docker stop $(docker ps -q)
-```
-
-#### Clean Up Containers and Images
-
-```powershell
 # Remove stopped containers
 docker container prune -f
 
@@ -383,3 +429,8 @@ Set up monitoring for:
 - [WSL2 Documentation](https://docs.microsoft.com/en-us/windows/wsl/)
 - [NVIDIA Container Toolkit](https://docs.nvidia.com/datacenter/cloud-native/container-toolkit/install-guide.html)
 - [Docker Security Best Practices](https://docs.docker.com/engine/security/)
+
+---
+
+**Last Updated:** 2025-10-03
+**Review Frequency:** Monthly or when new container types are added
