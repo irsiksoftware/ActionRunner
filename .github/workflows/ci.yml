@@ -32,7 +32,7 @@ jobs:
             exit 1
           }
 
-          Write-Host "All tests passed! ✓" -ForegroundColor Green
+          Write-Host "All tests passed! [OK]" -ForegroundColor Green
 
       - name: Upload test results
         if: always()
@@ -75,7 +75,7 @@ jobs:
             exit 1
           }
 
-          Write-Host "All scripts validated successfully! ✓" -ForegroundColor Green
+          Write-Host "All scripts validated successfully! [OK]" -ForegroundColor Green
 
   security-check:
     name: Security Validation
@@ -117,14 +117,14 @@ jobs:
             $found | ForEach-Object { Write-Warning $_ }
             Write-Warning "Review these findings before committing"
           } else {
-            Write-Host "No sensitive data patterns detected ✓" -ForegroundColor Green
+            Write-Host "No sensitive data patterns detected [OK]" -ForegroundColor Green
           }
 
       - name: Validate firewall rules
         shell: powershell
         run: |
           if (Test-Path .\config\firewall-rules.yaml) {
-            Write-Host "Firewall rules configuration found ✓" -ForegroundColor Green
+            Write-Host "Firewall rules configuration found [OK]" -ForegroundColor Green
           } else {
             Write-Warning "No firewall rules configuration found"
           }
@@ -147,8 +147,8 @@ jobs:
           if ("${{ needs.test.result }}" -eq "success" -and
               "${{ needs.validate-scripts.result }}" -eq "success" -and
               "${{ needs.security-check.result }}" -eq "success") {
-            Write-Host "✓ All checks passed!" -ForegroundColor Green
+            Write-Host "[OK] All checks passed!" -ForegroundColor Green
           } else {
-            Write-Host "✗ Some checks failed" -ForegroundColor Red
+            Write-Host "[X] Some checks failed" -ForegroundColor Red
             exit 1
           }
