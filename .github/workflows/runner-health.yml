@@ -1,0 +1,160 @@
+name: Runner Health Check
+
+on:
+  # Run every 6 hours
+  schedule:
+    - cron: '0 */6 * * *'
+
+  # Allow manual trigger
+  workflow_dispatch:
+    inputs:
+      min_disk_space_gb:
+        description: 'Minimum disk space threshold (GB)'
+        required: false
+        default: '100'
+        type: string
+
+# Only run on self-hosted runners
+jobs:
+  health-check:
+    name: Perform Health Check
+    runs-on: self-hosted
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run health check
+        id: health_check
+        shell: pwsh
+        run: |
+          $minDiskSpace = "${{ github.event.inputs.min_disk_space_gb }}"
+          if ([string]::IsNullOrEmpty($minDiskSpace)) {
+            $minDiskSpace = "100"
+          }
+
+          Write-Host "Running health check with minimum disk space: ${minDiskSpace}GB"
+
+          # Run health check and capture output
+          $healthCheckOutput = & .\scripts\health-check.ps1 -OutputFormat json -MinDiskSpaceGB ([int]$minDiskSpace)
+          $exitCode = $LASTEXITCODE
+
+          # Save output to file for artifact
+          $healthCheckOutput | Out-File -FilePath "health-check-result.json" -Encoding UTF8
+
+          # Parse and display summary
+          $healthData = $healthCheckOutput | ConvertFrom-Json
+
+          Write-Host "`n=== Health Check Summary ==="
+          Write-Host "Timestamp: $($healthData.timestamp)"
+          Write-Host "Overall Status: $($healthData.overall_status)"
+
+          if ($healthData.alerts -and $healthData.alerts.Count -gt 0) {
+            Write-Host "`nAlerts Found:"
+            foreach ($alert in $healthData.alerts) {
+              Write-Host "  - $alert"
+              Write-Output "::warning::$alert"
+            }
+          }
+
+          # Set output variables
+          "status=$($healthData.overall_status)" >> $env:GITHUB_OUTPUT
+          "alert_count=$($healthData.alerts.Count)" >> $env:GITHUB_OUTPUT
+
+          # Exit with appropriate code
+          exit $exitCode
+
+      - name: Upload health check results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: health-check-results-${{ github.run_id }}
+          path: health-check-result.json
+          retention-days: 30
+
+      - name: Create issue on critical failure
+        if: failure() && steps.health_check.outputs.status == 'unhealthy'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const healthData = JSON.parse(fs.readFileSync('health-check-result.json', 'utf8'));
+
+            const alertsList = healthData.alerts.map(alert => `- ${alert}`).join('\n');
+
+            const issueBody = `## Runner Health Check Failed
+
+            **Timestamp:** ${healthData.timestamp}
+            **Status:** ${healthData.overall_status}
+            **Runner:** ${process.env.RUNNER_NAME || 'Unknown'}
+
+            ### Alerts
+            ${alertsList}
+
+            ### Detailed Checks
+            \`\`\`json
+            ${JSON.stringify(healthData.checks, null, 2)}
+            \`\`\`
+
+            ### Actions Required
+            1. Review the alerts above
+            2. Check runner logs for additional details
+            3. Address critical issues immediately
+            4. Close this issue once resolved
+
+            ---
+            *This issue was automatically created by the runner health check workflow.*
+            *Run ID: ${context.runId}*
+            `;
+
+            // Check if there's already an open issue for runner health
+            const existingIssues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              labels: 'runner-health,automated',
+              state: 'open'
+            });
+
+            if (existingIssues.data.length > 0) {
+              // Update existing issue with a comment
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: existingIssues.data[0].number,
+                body: `## New Health Check Failure\n\n${issueBody}`
+              });
+              console.log(`Updated existing issue #${existingIssues.data[0].number}`);
+            } else {
+              // Create new issue
+              const issue = await github.rest.issues.create({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                title: `[ALERT] Runner Health Check Failed - ${new Date().toISOString().split('T')[0]}`,
+                body: issueBody,
+                labels: ['runner-health', 'automated', 'P1-High']
+              });
+              console.log(`Created issue #${issue.data.number}`);
+            }
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "`n=== Health Check Workflow Complete ==="
+          Write-Host "Status: ${{ steps.health_check.outputs.status }}"
+          Write-Host "Alerts: ${{ steps.health_check.outputs.alert_count }}"
+
+          # Create job summary
+          $summary = @"
+          ## Runner Health Check Results
+
+          - **Status:** ${{ steps.health_check.outputs.status }}
+          - **Alerts:** ${{ steps.health_check.outputs.alert_count }}
+          - **Runner:** $env:RUNNER_NAME
+          - **Run ID:** ${{ github.run_id }}
+
+          See the uploaded artifact for detailed results.
+          "@
+
+          $summary >> $env:GITHUB_STEP_SUMMARY
