@@ -1,0 +1,97 @@
+# Unity-Focused Runner Configuration Template
+# Optimized for Unity game development and builds
+
+runner:
+  name: "unity-runner"
+  labels:
+    - self-hosted
+    - windows
+    - X64
+    - unity
+    - game-dev
+  group: "Unity"
+
+paths:
+  runner_home: "C:\\actions-runner"
+  work_directory: "C:\\actions-runner\\_work"
+  temp_directory: "C:\\Temp"
+  log_directory: "C:\\actions-runner\\logs"
+
+resources:
+  max_concurrent_jobs: 1
+  cpu:
+    max_cores: 0
+    affinity: ""
+  memory:
+    max_memory_gb: 0
+    reserved_memory_gb: 4
+  disk:
+    min_free_space_gb: 150
+    auto_cleanup: true
+    cleanup_per_job: true
+
+timeouts:
+  job_timeout_minutes: 480  # 8 hours for large Unity builds
+  queue_timeout_minutes: 30
+  step_timeout_minutes: 120
+
+environment:
+  system:
+    UNITY_LICENSE_FILE: "C:\\ProgramData\\Unity\\Unity_lic.ulf"
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    ANDROID_SDK_ROOT: "C:\\Android\\SDK"
+    JAVA_HOME: "C:\\Program Files\\Java\\jdk-11"
+  custom:
+    UNITY_BATCH_MODE: "1"
+    UNITY_QUIT: "1"
+
+gpu:
+  enabled: false
+
+unity:
+  enabled: true
+  installations:
+    - version: "2022.3.x"
+      path: "C:\\Program Files\\Unity\\Hub\\Editor\\2022.3.x"
+    - version: "2023.2.x"
+      path: "C:\\Program Files\\Unity\\Hub\\Editor\\2023.2.x"
+  license:
+    type: "professional"
+    file_path: "C:\\ProgramData\\Unity\\Unity_lic.ulf"
+  build:
+    batch_mode: true
+    quit_after_build: true
+    accept_api_update: true
+
+docker:
+  enabled: false
+
+monitoring:
+  enabled: true
+  health_check_interval: 300
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: false
+    high_memory_usage: true
+    job_failure: true
+  thresholds:
+    memory_warning_percent: 85
+    memory_critical_percent: 95
+    disk_warning_gb: 150
+    disk_critical_gb: 100
+
+security:
+  firewall_enabled: true
+  block_external_access: false
+  audit_logging: true
+
+logging:
+  level: "info"
+  retention_days: 30
+  max_file_size_mb: 200
+  rotation_enabled: true
+
+maintenance:
+  auto_update: false
+  maintenance_window: "0 2 * * 0"

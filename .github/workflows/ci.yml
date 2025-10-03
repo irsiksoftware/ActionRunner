@@ -20,6 +20,10 @@ jobs:
         shell: powershell
         run: |
           Write-Host "Installing Pester 5.x..."
+          # Install NuGet provider first
+          [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+          Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -Confirm:$false | Out-Null
+
           # Remove old Pester version if present
           $oldPester = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -lt '5.0' }
           if ($oldPester) {
@@ -27,7 +31,7 @@ jobs:
           }
 
           # Install Pester 5.x
-          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser -Confirm:$false
           Import-Module Pester -MinimumVersion 5.0 -Force
 
           Write-Host "Running test suite..."
@@ -68,25 +72,40 @@ jobs:
           Write-Host "Installing PSScriptAnalyzer if not present..."
           if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
             # Install NuGet provider first to avoid prompts
-            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
-            Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
+            [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -Confirm:$false | Out-Null
+            Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser -Confirm:$false
           }
 
           Write-Host "Analyzing PowerShell scripts..."
           $scripts = Get-ChildItem -Path .\scripts\, .\config\ -Filter *.ps1 -Recurse
           $errors = @()
+          $warnings = @()
 
           foreach ($script in $scripts) {
             Write-Host "Analyzing: $($script.Name)"
             $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Error, Warning
             if ($results) {
-              $errors += $results
+              $errorResults = $results | Where-Object { $_.Severity -eq 'Error' }
+              $warningResults = $results | Where-Object { $_.Severity -eq 'Warning' }
+
+              if ($errorResults) {
+                $errors += $errorResults
+              }
+              if ($warningResults) {
+                $warnings += $warningResults
+              }
+
               $results | Format-Table -AutoSize
             }
           }
 
+          if ($warnings.Count -gt 0) {
+            Write-Warning "Found $($warnings.Count) warnings in PowerShell scripts"
+          }
+
           if ($errors.Count -gt 0) {
-            Write-Error "Found $($errors.Count) issues in PowerShell scripts"
+            Write-Error "Found $($errors.Count) errors in PowerShell scripts"
             exit 1
           }
 

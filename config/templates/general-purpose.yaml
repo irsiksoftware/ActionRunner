@@ -1,0 +1,88 @@
+# General-Purpose Runner Configuration Template
+# Balanced configuration for general CI/CD workloads
+
+runner:
+  name: ""
+  labels:
+    - self-hosted
+    - windows
+    - X64
+  group: "Default"
+
+paths:
+  runner_home: "C:\\actions-runner"
+  work_directory: "C:\\actions-runner\\_work"
+  temp_directory: "C:\\Temp"
+  log_directory: "C:\\actions-runner\\logs"
+
+resources:
+  max_concurrent_jobs: 1
+  cpu:
+    max_cores: 0
+    affinity: ""
+  memory:
+    max_memory_gb: 0
+    reserved_memory_gb: 2
+  disk:
+    min_free_space_gb: 100
+    auto_cleanup: true
+    cleanup_per_job: true
+
+timeouts:
+  job_timeout_minutes: 360
+  queue_timeout_minutes: 30
+  step_timeout_minutes: 60
+
+environment:
+  system:
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    NODE_VERSION: "20.x"
+    PYTHON_VERSION: "3.11"
+  custom: {}
+
+gpu:
+  enabled: false
+
+unity:
+  enabled: false
+
+docker:
+  enabled: true
+  isolation_mode: "process"
+  container_limits:
+    memory_gb: 8
+    cpu_cores: 4
+  auto_cleanup_containers: true
+  auto_cleanup_images: false
+
+monitoring:
+  enabled: true
+  health_check_interval: 300
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: true
+    high_memory_usage: true
+    job_failure: false
+  thresholds:
+    cpu_warning_percent: 80
+    cpu_critical_percent: 95
+    memory_warning_percent: 85
+    memory_critical_percent: 95
+    disk_warning_gb: 150
+    disk_critical_gb: 100
+
+security:
+  firewall_enabled: true
+  block_external_access: false
+  audit_logging: true
+
+logging:
+  level: "info"
+  retention_days: 30
+  max_file_size_mb: 100
+  rotation_enabled: true
+
+maintenance:
+  auto_update: false
+  maintenance_window: "0 2 * * 0"

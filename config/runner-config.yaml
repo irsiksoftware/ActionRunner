@@ -1,0 +1,271 @@
+# GitHub Actions Self-Hosted Runner Configuration
+# This file defines the configuration for your self-hosted GitHub Actions runner
+
+# Runner Identity
+runner:
+  # Unique name for the runner (leave empty to use hostname)
+  name: ""
+
+  # Runner labels for workflow targeting
+  # Common labels: self-hosted, windows, X64, gpu, cuda, unity
+  labels:
+    - self-hosted
+    - windows
+    - X64
+
+  # Runner group (default: "Default")
+  group: "Default"
+
+# Working Directories
+paths:
+  # Runner installation directory
+  runner_home: "C:\\actions-runner"
+
+  # Work directory for job execution
+  work_directory: "C:\\actions-runner\\_work"
+
+  # Temporary directory for builds
+  temp_directory: "C:\\Temp"
+
+  # Log directory
+  log_directory: "C:\\actions-runner\\logs"
+
+# Resource Limits
+resources:
+  # Maximum number of concurrent jobs (0 = unlimited)
+  max_concurrent_jobs: 1
+
+  # CPU allocation
+  cpu:
+    # Maximum CPU cores to use (0 = all available)
+    max_cores: 0
+    # CPU affinity (comma-separated core numbers, empty = no affinity)
+    affinity: ""
+
+  # Memory allocation
+  memory:
+    # Maximum memory in GB (0 = unlimited)
+    max_memory_gb: 0
+    # Reserve memory in GB
+    reserved_memory_gb: 4
+
+  # Disk space
+  disk:
+    # Minimum free space required in GB
+    min_free_space_gb: 100
+    # Enable automatic workspace cleanup
+    auto_cleanup: true
+    # Cleanup after each job
+    cleanup_per_job: true
+
+# Job Timeout Settings
+timeouts:
+  # Default job timeout in minutes (0 = no timeout)
+  job_timeout_minutes: 360
+
+  # Job queue timeout in minutes
+  queue_timeout_minutes: 30
+
+  # Step timeout in minutes
+  step_timeout_minutes: 60
+
+# Environment Variables
+environment:
+  # System environment variables
+  system:
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    JAVA_HOME: "C:\\Program Files\\Java\\jdk-11"
+    NODE_VERSION: "20.x"
+    PYTHON_VERSION: "3.11"
+
+  # Runner-specific environment variables
+  runner:
+    ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT: "1"
+    RUNNER_ALLOW_RUNASROOT: "0"
+
+  # Custom environment variables
+  custom:
+    # Add your custom environment variables here
+    # CUSTOM_VAR: "value"
+
+# GPU Configuration (NVIDIA CUDA)
+gpu:
+  # Enable GPU support
+  enabled: true
+
+  # CUDA version
+  cuda_version: "12.0"
+
+  # GPU memory allocation
+  vram:
+    # Reserve VRAM in GB
+    reserved_vram_gb: 2
+    # Maximum VRAM usage in GB (0 = unlimited)
+    max_vram_gb: 0
+
+  # GPU compute mode (default, exclusive, prohibited)
+  compute_mode: "default"
+
+# Unity Configuration
+unity:
+  # Enable Unity support
+  enabled: true
+
+  # Unity installation paths
+  installations:
+    - version: "2022.3.x"
+      path: "C:\\Program Files\\Unity\\Hub\\Editor\\2022.3.x"
+    - version: "2023.2.x"
+      path: "C:\\Program Files\\Unity\\Hub\\Editor\\2023.2.x"
+
+  # Unity license
+  license:
+    # License type (personal, professional, enterprise)
+    type: "professional"
+    # License file path (leave empty for default)
+    file_path: ""
+
+  # Unity build settings
+  build:
+    # Enable batch mode
+    batch_mode: true
+    # Quit after build
+    quit_after_build: true
+    # Accept API update
+    accept_api_update: true
+
+# Docker Configuration
+docker:
+  # Enable Docker support
+  enabled: true
+
+  # Docker socket path
+  socket_path: "npipe:////./pipe/docker_engine"
+
+  # Container isolation mode (process, hyperv)
+  isolation_mode: "process"
+
+  # Resource limits for containers
+  container_limits:
+    memory_gb: 8
+    cpu_cores: 4
+
+  # Automatic container cleanup
+  auto_cleanup_containers: true
+  auto_cleanup_images: false
+
+# Monitoring & Health Checks
+monitoring:
+  # Enable monitoring
+  enabled: true
+
+  # Health check interval in seconds
+  health_check_interval: 300
+
+  # Alert webhook URL (Slack, Discord, Teams, etc.)
+  alert_webhook: ""
+
+  # Alert on events
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: true
+    high_memory_usage: true
+    job_failure: false
+
+  # Thresholds
+  thresholds:
+    cpu_warning_percent: 80
+    cpu_critical_percent: 95
+    memory_warning_percent: 85
+    memory_critical_percent: 95
+    disk_warning_gb: 150
+    disk_critical_gb: 100
+
+# Security Settings
+security:
+  # Enable firewall rules
+  firewall_enabled: true
+
+  # Allowed networks (CIDR notation)
+  allowed_networks:
+    - "192.168.1.0/24"
+    - "10.0.0.0/8"
+
+  # Block external network access during jobs
+  block_external_access: false
+
+  # Enable audit logging
+  audit_logging: true
+
+  # Audit log path
+  audit_log_path: "C:\\actions-runner\\logs\\audit.log"
+
+# Logging Configuration
+logging:
+  # Log level (debug, info, warning, error)
+  level: "info"
+
+  # Log retention in days
+  retention_days: 30
+
+  # Maximum log file size in MB
+  max_file_size_mb: 100
+
+  # Enable log rotation
+  rotation_enabled: true
+
+  # Log to console
+  console_output: true
+
+# Maintenance
+maintenance:
+  # Enable automatic updates
+  auto_update: false
+
+  # Update check interval in hours
+  update_check_interval_hours: 24
+
+  # Backup configuration before updates
+  backup_before_update: true
+
+  # Maintenance window (cron expression)
+  # Example: "0 2 * * 0" (2 AM every Sunday)
+  maintenance_window: "0 2 * * 0"
+
+# Webhooks & Notifications
+webhooks:
+  # Webhook endpoints for events
+  endpoints:
+    - name: "slack"
+      url: ""
+      events:
+        - runner_started
+        - runner_stopped
+        - job_queued
+        - job_started
+        - job_completed
+        - job_failed
+        - health_check_failed
+
+    - name: "discord"
+      url: ""
+      events:
+        - job_failed
+        - health_check_failed
+
+# Feature Flags
+features:
+  # Enable experimental features
+  experimental:
+    # Use new job execution engine
+    new_job_engine: false
+    # Enable job queueing
+    job_queueing: true
+
+  # Disable features
+  disabled:
+    # Disable artifact upload
+    artifact_upload: false
+    # Disable cache
+    cache: false
