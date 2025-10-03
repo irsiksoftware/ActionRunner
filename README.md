@@ -168,4 +168,4 @@ Security improvements and feedback welcome! Please submit issues or pull request
 
 ---
 
-**Last Updated**: 2025-10-03
+**Last Updated**: 2025-10-03# Self-hosted runners active
