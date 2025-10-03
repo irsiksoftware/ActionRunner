@@ -235,7 +235,7 @@ function Set-EnvironmentVariables {
                         [System.Environment]::SetEnvironmentVariable($key, $value, [System.EnvironmentVariableTarget]::Machine)
                         Write-ConfigLog "    Set $key = $value" "SUCCESS"
                     } catch {
-                        Write-ConfigLog "    Failed to set $key: $_" "WARN"
+                        Write-ConfigLog "    Failed to set ${key}: $_" "WARN"
                     }
                 }
             }
