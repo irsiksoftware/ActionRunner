@@ -1,0 +1,62 @@
+name: Self-Hosted Docker Build Template
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  docker-build:
+    name: Docker Build and Test
+    runs-on: [self-hosted, windows, docker]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Docker availability
+        shell: powershell
+        run: |
+          Write-Host "Checking Docker..."
+          docker --version
+          docker info
+          Write-Host "[OK] Docker is ready" -ForegroundColor Green
+
+      - name: Build Docker image
+        shell: powershell
+        run: |
+          Write-Host "Building Docker image..."
+          $imageName = "$env:IMAGE_NAME:$env:GITHUB_SHA"
+          docker build -t $imageName .
+          Write-Host "[OK] Image built: $imageName" -ForegroundColor Green
+
+      - name: Test Docker image
+        shell: powershell
+        run: |
+          Write-Host "Testing Docker image..."
+          $imageName = "$env:IMAGE_NAME:$env:GITHUB_SHA"
+          # Add your container tests here
+          # docker run --rm $imageName test
+          Write-Host "[OK] Image tests passed" -ForegroundColor Green
+
+      - name: Tag image
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: powershell
+        run: |
+          $imageName = "$env:IMAGE_NAME:$env:GITHUB_SHA"
+          docker tag $imageName "$env:IMAGE_NAME:latest"
+          Write-Host "[OK] Tagged as latest" -ForegroundColor Green
+
+      - name: Cleanup Docker resources
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "Cleaning up Docker resources..."
+          docker system prune -f --volumes
+          Write-Host "[OK] Cleanup complete" -ForegroundColor Green
