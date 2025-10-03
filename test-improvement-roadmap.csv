@@ -1,0 +1,51 @@
+Issue ID,Priority,Category,Description,Human Required,Estimated Effort,Framework/Tech,Dependencies,Notes
+1,1,Configuration,Fix error handling tests in apply-config.ps1 - tests expect exceptions but script continues,No,Low,PowerShell,,Update error handling to throw exceptions on validation failures
+2,1,Workflow,Add missing Docker Health Check content to runner-health.yml workflow,No,Low,Workflow,,Add Docker health monitoring steps to workflow
+3,1,Workflow,Fix regex patterns in workflow security tests,No,Low,PowerShell,,Escape special characters in regex patterns for secret detection
+4,1,Workflow,Add continue-on-error to appropriate workflow steps,No,Low,Workflow,,Identify non-critical steps that should use continue-on-error
+5,1,Python,Create Python Docker image (runner-python),No,Medium,Python/Docker,,Build Dockerfile for Python 3.11+ with common dependencies
+6,1,.NET,Create .NET Docker image (runner-dotnet),No,Medium,.NET/Docker,,Build Dockerfile for .NET 6/7/8 with SDK and runtime
+7,1,Python,Add Python dependency verification tests,No,Medium,Python,,Test pip, venv, common packages (requests, pytest, etc.)
+8,1,.NET,Add .NET dependency verification tests,No,Medium,.NET,,Test dotnet CLI, NuGet, common packages
+9,1,Node.js,Create Node.js Docker image (runner-nodejs),No,Medium,Node.js/Docker,,Build Dockerfile for Node.js 20+ with pnpm support
+10,1,Node.js,Add Node.js/pnpm verification tests,No,Medium,Node.js,,Test node, npm, pnpm, common packages
+11,1,Web Framework,Add Flask/Django verification tests,No,Medium,Python,,Test Python web framework basics
+12,1,Web Framework,Add ASP.NET Core verification tests,No,Medium,.NET,,Test ASP.NET Core web framework basics
+13,2,Configuration,Create missing configuration template files,No,Medium,YAML/JSON,,Generate default, dev, prod, and workload-specific configs
+14,2,Docker,Create Docker daemon verification logic,No,Medium,Docker,,Add proper Docker availability checks with error handling
+15,2,Docker,Implement WSL2 verification and setup functions,Yes,High,WSL/Docker,Issue 14,Requires Windows-specific WSL2 installation steps - manual testing needed
+16,2,Docker,Create GPU Docker image (runner-gpu),Yes,High,CUDA/Docker,Issue 14,Requires NVIDIA drivers and CUDA toolkit - hardware dependent
+17,2,Integration,Setup test GitHub runner API endpoints,Yes,Medium,GitHub API,,Requires PAT token and test repository access
+18,2,Integration,Create mock runner registration service,No,Medium,PowerShell/Testing,,Build mock API for testing registration without real GitHub API
+19,2,Service,Add Windows service management tests,Yes,Medium,Windows,,Requires elevated permissions - integration test environment needed
+20,2,Logging,Implement log rotation verification tests,No,Medium,PowerShell,,Test log file rotation, retention, and cleanup
+21,2,Monitoring,Add health check integration tests,No,Medium,PowerShell,,Test disk, memory, CPU monitoring functions
+22,2,Monitoring,Create dashboard server tests,Yes,High,Web Server,,"Requires web server setup (HTTP server, Node.js, or Python SimpleHTTPServer)"
+23,3,Mobile,Create Unity Docker image (runner-unity),Yes,Very High,Unity/Docker,Issue 16,"Requires Unity license, large image size (~10GB+), GPU support"
+24,3,Mobile,Add Unity build pipeline tests,Yes,Very High,Unity,Issue 23,Requires Unity project setup and build verification
+25,3,Mobile,Create Android SDK Docker image,Yes,High,Android/Docker,,Requires Android SDK installation and licensing
+26,3,Mobile,Add Android build tests,Yes,High,Android,Issue 25,Requires Android project setup and emulator/build tools
+27,3,Mobile,Create iOS build environment tests,Yes,Very High,iOS/macOS,,Requires macOS runner and Xcode - not Windows compatible
+28,3,Mobile,Add React Native verification tests,No,Medium,React Native,Issues 9 and 25,Depends on Node.js and Android/iOS setup
+29,3,Mobile,Create Flutter verification tests,Yes,High,Flutter/Dart,,Requires Flutter SDK installation
+30,4,LLM,Add LangChain dependency verification,No,Medium,Python,Issue 7,Add Python package verification for LangChain
+31,4,LLM,Add OpenAI SDK verification tests,No,Medium,Python/Node.js,Issues 7 and 9,Test openai package installation
+32,4,LLM,Add vector database verification (Pinecone/Weaviate),Yes,High,Python/Docker,Issue 14,Requires external service or local Docker setup
+33,4,LLM,Create model serving tests (vLLM/TGI),Yes,Very High,Python/CUDA,Issue 16,Requires GPU support and large model downloads
+34,4,LLM,Add embedding model tests,Yes,High,Python/CUDA,Issue 16,May require GPU for performance
+35,4,Security,Fix benchmark-runner.ps1 container failures,No,High,PowerShell,,Debug and fix container initialization issues
+36,2,Security,Add security scanning verification tests,No,Medium,PowerShell,,Test integration with security tools (if available)
+37,2,Workflow,Create workflow validation utility,No,Medium,PowerShell,,Tool to validate workflow YAML against expectations
+38,2,Documentation,Add setup guide for test environment,Yes,Low,Documentation,,Document prerequisites and setup steps for running all tests
+39,2,Testing,Create test data fixtures and mocks,No,Medium,PowerShell,,Build reusable test fixtures for common scenarios
+40,2,Testing,Add performance benchmark baseline data,No,Medium,PowerShell,,Establish baseline metrics for benchmark comparisons
+41,3,Build Tools,Add CMake verification tests,No,Medium,C/C++,,Test CMake installation and basic builds
+42,3,Build Tools,Add Gradle verification tests,No,Medium,Java/Kotlin,,Test Gradle installation and basic builds
+43,3,Build Tools,Add Maven verification tests,No,Medium,Java,,Test Maven installation and basic builds
+44,3,Language Support,Add Rust toolchain verification,No,Medium,Rust,,Test cargo and rustc installation
+45,3,Language Support,Add Go toolchain verification,No,Medium,Go,,Test go installation and basic builds
+46,3,Database,Add PostgreSQL verification tests,Yes,High,PostgreSQL/Docker,Issue 14,Requires database service setup
+47,3,Database,Add MongoDB verification tests,Yes,High,MongoDB/Docker,Issue 14,Requires database service setup
+48,3,Database,Add Redis verification tests,Yes,Medium,Redis/Docker,Issue 14,Requires Redis service setup
+49,2,Error Handling,Standardize error handling across all scripts,No,High,PowerShell,,Ensure consistent exception throwing and error messages
+50,2,Integration,Create end-to-end workflow test,Yes,Very High,Full Stack,Multiple,"Requires complete runner setup, GitHub integration, and multiple frameworks"

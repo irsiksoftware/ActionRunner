@@ -1,0 +1,265 @@
+name: Build Capability Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # Core Infrastructure Capabilities
+  core-infrastructure:
+    name: ⚙️ Core Infrastructure
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run Core Infrastructure Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability Core -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: core-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # Web Application Build Support
+  webapp-support:
+    name: 🌐 Web Application Support
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run Web App Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability WebApp -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: webapp-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # Docker & Container Support
+  docker-support:
+    name: 🐳 Docker & Container Support
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run Docker Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability Docker -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # Mobile Build Support
+  mobile-support:
+    name: 📱 Mobile Build Support
+    runs-on: [self-hosted, windows]
+    continue-on-error: true  # Mobile support is optional/future
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run Mobile Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability Mobile -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: mobile-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # AI/LLM Build Support
+  ai-support:
+    name: 🤖 AI/LLM Build Support
+    runs-on: [self-hosted, windows]
+    continue-on-error: true  # AI support is optional/future
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run AI/LLM Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability AI -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # Integration & Workflows
+  integration-tests:
+    name: 🔄 Integration & Workflows
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run Integration Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability Integration -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
+  # Generate Capability Status Report
+  capability-status:
+    name: 📊 Generate Capability Status
+    runs-on: [self-hosted, windows]
+    needs: [core-infrastructure, webapp-support, docker-support, mobile-support, ai-support, integration-tests]
+    if: always()
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run All Capability Tests & Generate Report
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability All -CI
+
+      - name: Generate Status Badge Data
+        shell: powershell
+        run: |
+          if (Test-Path test-capability-status.json) {
+            $status = Get-Content test-capability-status.json | ConvertFrom-Json
+
+            Write-Host "`n=== BUILD CAPABILITY STATUS ===" -ForegroundColor Cyan
+            Write-Host ""
+
+            foreach ($cap in $status.Capabilities.PSObject.Properties) {
+              $data = $cap.Value
+              $icon = switch ($data.Status) {
+                'Pass' { '✓' }
+                'Warning' { '⚠' }
+                'Fail' { '✗' }
+              }
+              $color = switch ($data.Status) {
+                'Pass' { 'Green' }
+                'Warning' { 'Yellow' }
+                'Fail' { 'Red' }
+              }
+
+              Write-Host "$icon " -NoNewline -ForegroundColor $color
+              Write-Host "$($data.Name): " -NoNewline
+              Write-Host "$($data.Passed)/$($data.Total) " -NoNewline
+              Write-Host "($($data.PassRate)%)" -ForegroundColor $color
+            }
+
+            Write-Host ""
+          }
+
+      - name: Upload Capability Status
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: capability-status
+          path: test-capability-status.json
+
+      - name: Report Overall Status
+        shell: powershell
+        run: |
+          $coreStatus = "${{ needs.core-infrastructure.result }}"
+          $webappStatus = "${{ needs.webapp-support.result }}"
+          $dockerStatus = "${{ needs.docker-support.result }}"
+          $integrationStatus = "${{ needs.integration-tests.result }}"
+
+          Write-Host "`n=== JOB STATUS SUMMARY ===" -ForegroundColor Cyan
+          Write-Host "⚙️  Core Infrastructure: $coreStatus"
+          Write-Host "🌐 Web Application Support: $webappStatus"
+          Write-Host "🐳 Docker & Container Support: $dockerStatus"
+          Write-Host "🔄 Integration & Workflows: $integrationStatus"
+          Write-Host "📱 Mobile Build Support: ${{ needs.mobile-support.result }} (optional)"
+          Write-Host "🤖 AI/LLM Build Support: ${{ needs.ai-support.result }} (optional)"
+
+          # Core capabilities must pass (not optional)
+          if ($coreStatus -eq "success" -and $webappStatus -eq "success" -and
+              $dockerStatus -eq "success" -and $integrationStatus -eq "success") {
+            Write-Host "`n✓ All core build capabilities are functional!" -ForegroundColor Green
+            exit 0
+          } else {
+            Write-Host "`n✗ Some core capabilities need attention" -ForegroundColor Red
+            exit 1
+          }
