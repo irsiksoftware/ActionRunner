@@ -1,0 +1,205 @@
+name: Security Audit
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  schedule:
+    # Run weekly security audit every Monday at 9 AM UTC
+    - cron: '0 9 * * 1'
+
+# Restrict workflow permissions
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  security-audit:
+    name: Security Configuration Audit
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Audit firewall configuration
+        run: |
+          Write-Host "=== Security Configuration Audit ==="
+          Write-Host ""
+
+          # Check firewall rules file
+          Write-Host "1. Firewall Configuration:"
+          if (Test-Path "config/firewall-rules.yaml") {
+            $content = Get-Content "config/firewall-rules.yaml" -Raw
+            $lines = ($content -split "`n").Count
+            Write-Host "   ✓ Firewall rules file exists ($lines lines)"
+          } else {
+            Write-Warning "   ⚠ Firewall rules file missing"
+          }
+
+          Write-Host ""
+
+          # Check documentation
+          Write-Host "2. Security Documentation:"
+          if (Test-Path "docs/security.md") {
+            $content = Get-Content "docs/security.md" -Raw
+            $lines = ($content -split "`n").Count
+            Write-Host "   ✓ Security documentation exists ($lines lines)"
+          } else {
+            Write-Warning "   ⚠ Security documentation missing"
+          }
+
+          Write-Host ""
+
+          # Check for sensitive files that shouldn't be committed
+          Write-Host "3. Sensitive Files Check:"
+          $sensitivePatterns = @(
+            "*.pem",
+            "*.key",
+            "*.pfx",
+            "*.p12",
+            "*.env",
+            "*secret*",
+            "*password*",
+            "*token*"
+          )
+
+          $foundSensitive = $false
+          foreach ($pattern in $sensitivePatterns) {
+            $files = Get-ChildItem -Path . -Filter $pattern -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\\.git\\' }
+            if ($files) {
+              Write-Warning "   ⚠ Found potentially sensitive files: $pattern"
+              $foundSensitive = $true
+            }
+          }
+
+          if (-not $foundSensitive) {
+            Write-Host "   ✓ No obvious sensitive files found"
+          }
+
+          Write-Host ""
+
+          # Check .gitignore
+          Write-Host "4. .gitignore Configuration:"
+          if (Test-Path ".gitignore") {
+            Write-Host "   ✓ .gitignore exists"
+            $gitignoreContent = Get-Content ".gitignore" -Raw
+
+            # Check for important patterns
+            $importantPatterns = @{
+              "*.env" = "Environment files"
+              "*.key" = "Key files"
+              "*.pem" = "Certificate files"
+            }
+
+            foreach ($pattern in $importantPatterns.GetEnumerator()) {
+              if ($gitignoreContent -match [regex]::Escape($pattern.Key)) {
+                Write-Host "   ✓ Ignoring $($pattern.Value)"
+              } else {
+                Write-Warning "   ⚠ Not ignoring $($pattern.Value) ($($pattern.Key))"
+              }
+            }
+          } else {
+            Write-Warning "   ⚠ .gitignore missing"
+          }
+
+          Write-Host ""
+          Write-Host "=== Audit Complete ==="
+        shell: pwsh
+
+      - name: Check PowerShell script security
+        run: |
+          Write-Host "=== PowerShell Script Security Check ==="
+          Write-Host ""
+
+          $psFiles = Get-ChildItem -Path config -Filter *.ps1 -Recurse -ErrorAction SilentlyContinue
+
+          if ($psFiles) {
+            foreach ($file in $psFiles) {
+              Write-Host "Analyzing: $($file.Name)"
+
+              $content = Get-Content $file.FullName -Raw
+
+              # Check for potentially dangerous commands
+              $dangerousPatterns = @{
+                'Invoke-Expression' = 'Code execution risk'
+                'iex ' = 'Code execution risk (alias)'
+                'DownloadString' = 'Untrusted download'
+                'DownloadFile' = 'Untrusted download'
+                '-EncodedCommand' = 'Obfuscated command'
+              }
+
+              $issuesFound = $false
+              foreach ($pattern in $dangerousPatterns.GetEnumerator()) {
+                if ($content -match $pattern.Key) {
+                  Write-Warning "  ⚠ Found potentially dangerous pattern: $($pattern.Key) - $($pattern.Value)"
+                  $issuesFound = $true
+                }
+              }
+
+              if (-not $issuesFound) {
+                Write-Host "  ✓ No obvious security issues"
+              }
+
+              Write-Host ""
+            }
+          } else {
+            Write-Host "No PowerShell scripts found in config directory"
+          }
+
+          Write-Host "=== Script Security Check Complete ==="
+        shell: pwsh
+
+  documentation-check:
+    name: Documentation Completeness
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify security documentation completeness
+        run: |
+          Write-Host "=== Documentation Completeness Check ==="
+          Write-Host ""
+
+          if (-not (Test-Path "docs/security.md")) {
+            Write-Error "Security documentation missing!"
+            exit 1
+          }
+
+          $securityDoc = Get-Content "docs/security.md" -Raw
+
+          # Check for required sections
+          $requiredSections = @(
+            'Security Risks',
+            'Best Practices',
+            'Network Isolation',
+            'Token Management',
+            'Monitoring',
+            'Incident Response'
+          )
+
+          Write-Host "Checking for required sections in security.md:"
+          $allSectionsPresent = $true
+          foreach ($section in $requiredSections) {
+            if ($securityDoc -match $section) {
+              Write-Host "  ✓ Section found: $section"
+            } else {
+              Write-Warning "  ⚠ Section missing or incomplete: $section"
+              $allSectionsPresent = $false
+            }
+          }
+
+          Write-Host ""
+
+          if ($allSectionsPresent) {
+            Write-Host "✓ All required documentation sections present"
+          } else {
+            Write-Warning "⚠ Some documentation sections may be incomplete"
+          }
+
+          Write-Host ""
+          Write-Host "=== Documentation Check Complete ==="
+        shell: pwsh

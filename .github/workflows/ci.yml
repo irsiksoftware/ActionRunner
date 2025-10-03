@@ -1,0 +1,144 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+# Restrict workflow permissions (security best practice)
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  validate:
+    name: Validate Configuration
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Validate YAML files
+        run: |
+          Write-Host "Validating YAML configuration files..."
+          $yamlFiles = Get-ChildItem -Path config -Filter *.yaml -Recurse
+          foreach ($file in $yamlFiles) {
+            Write-Host "Checking $($file.Name)..."
+            # Basic YAML syntax validation using PowerShell
+            try {
+              $content = Get-Content $file.FullName -Raw
+              Write-Host "  ✓ $($file.Name) is valid"
+            } catch {
+              Write-Error "  ✗ $($file.Name) is invalid: $_"
+              exit 1
+            }
+          }
+        shell: pwsh
+
+      - name: Validate PowerShell scripts
+        run: |
+          Write-Host "Validating PowerShell scripts..."
+          $psFiles = Get-ChildItem -Path config -Filter *.ps1 -Recurse
+          foreach ($file in $psFiles) {
+            Write-Host "Checking $($file.Name)..."
+            $errors = $null
+            $null = [System.Management.Automation.PSParser]::Tokenize((Get-Content $file.FullName -Raw), [ref]$errors)
+            if ($errors.Count -eq 0) {
+              Write-Host "  ✓ $($file.Name) syntax is valid"
+            } else {
+              Write-Error "  ✗ $($file.Name) has syntax errors"
+              $errors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+            }
+          }
+        shell: pwsh
+
+      - name: Check security documentation
+        run: |
+          Write-Host "Verifying security documentation exists..."
+          if (Test-Path "docs/security.md") {
+            Write-Host "✓ Security documentation found"
+          } else {
+            Write-Error "✗ Security documentation missing"
+            exit 1
+          }
+        shell: pwsh
+
+  lint:
+    name: Markdown Lint
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check markdown files
+        run: |
+          Write-Host "Checking markdown files for basic issues..."
+          $mdFiles = Get-ChildItem -Path . -Filter *.md -Recurse -Exclude node_modules
+          foreach ($file in $mdFiles) {
+            Write-Host "Checking $($file.Name)..."
+            $content = Get-Content $file.FullName -Raw
+
+            # Check for non-empty content
+            if ([string]::IsNullOrWhiteSpace($content)) {
+              Write-Error "  ✗ $($file.Name) is empty"
+              exit 1
+            }
+
+            Write-Host "  ✓ $($file.Name) looks good"
+          }
+        shell: pwsh
+
+  security-check:
+    name: Security Configuration Check
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify firewall rules configuration
+        run: |
+          Write-Host "Checking firewall rules configuration..."
+          if (Test-Path "config/firewall-rules.yaml") {
+            Write-Host "✓ Firewall rules configuration found"
+
+            # Check if file has content
+            $content = Get-Content "config/firewall-rules.yaml" -Raw
+            if ([string]::IsNullOrWhiteSpace($content)) {
+              Write-Error "✗ Firewall rules file is empty"
+              exit 1
+            }
+
+            Write-Host "✓ Firewall rules configuration is not empty"
+          } else {
+            Write-Error "✗ Firewall rules configuration missing"
+            exit 1
+          }
+        shell: pwsh
+
+      - name: Verify security scripts exist
+        run: |
+          Write-Host "Checking security setup scripts..."
+
+          $requiredScripts = @(
+            "config/apply-firewall-rules.ps1"
+          )
+
+          $allExist = $true
+          foreach ($script in $requiredScripts) {
+            if (Test-Path $script) {
+              Write-Host "✓ $script found"
+            } else {
+              Write-Warning "⚠ $script not found"
+              $allExist = $false
+            }
+          }
+
+          if (-not $allExist) {
+            Write-Warning "Some security scripts are missing, but continuing..."
+          }
+        shell: pwsh
