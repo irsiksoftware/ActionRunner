@@ -127,3 +127,6 @@ secrets.yaml
 *.bak
 *.backup
 *~
+
+# Swarm coordination cache (auto-generated)
+.swarm-cache/
