@@ -35,7 +35,7 @@ jobs:
             } elseif ($percentFree -lt 20) {
               Write-Warning "WARNING: Drive $($drive.Name) has less than 20% free space"
             } else {
-              Write-Host "✓ Drive $($drive.Name) has adequate space" -ForegroundColor Green
+              Write-Host "[OK] Drive $($drive.Name) has adequate space" -ForegroundColor Green
             }
           }
 
@@ -57,7 +57,7 @@ jobs:
           if ($percentUsed -gt 90) {
             Write-Warning "WARNING: Memory usage is above 90%"
           } else {
-            Write-Host "✓ Memory usage is normal" -ForegroundColor Green
+            Write-Host "[OK] Memory usage is normal" -ForegroundColor Green
           }
 
       - name: Check CPU load
@@ -72,7 +72,7 @@ jobs:
           if ($cpuLoad -gt 90) {
             Write-Warning "WARNING: CPU load is above 90%"
           } else {
-            Write-Host "✓ CPU load is normal" -ForegroundColor Green
+            Write-Host "[OK] CPU load is normal" -ForegroundColor Green
           }
 
       - name: Check runner service status
@@ -89,7 +89,7 @@ jobs:
                 exit 1
               }
             }
-            Write-Host "✓ All runner services are running" -ForegroundColor Green
+            Write-Host "[OK] All runner services are running" -ForegroundColor Green
           } else {
             Write-Host "No runner services found (may not be installed)" -ForegroundColor Yellow
           }
@@ -113,7 +113,7 @@ jobs:
             if ($oldLogs.Count -gt 0) {
               Write-Host "Consider cleaning up $($oldLogs.Count) old log files" -ForegroundColor Yellow
             } else {
-              Write-Host "✓ No old logs found" -ForegroundColor Green
+              Write-Host "[OK] No old logs found" -ForegroundColor Green
             }
           } else {
             Write-Host "Logs directory not found" -ForegroundColor Yellow
@@ -136,7 +136,7 @@ jobs:
                 Write-Warning "WARNING: $($oldContainers.Count) stopped containers. Consider cleanup."
               }
 
-              Write-Host "✓ Docker health check complete" -ForegroundColor Green
+              Write-Host "[OK] Docker health check complete" -ForegroundColor Green
             }
           } catch {
             Write-Host "Docker not available or not running" -ForegroundColor Yellow
@@ -148,4 +148,4 @@ jobs:
         run: |
           Write-Host "`n=== Health Check Complete ===" -ForegroundColor Cyan
           Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-          Write-Host "Runner health check completed successfully ✓" -ForegroundColor Green
+          Write-Host "Runner health check completed successfully [OK]" -ForegroundColor Green
