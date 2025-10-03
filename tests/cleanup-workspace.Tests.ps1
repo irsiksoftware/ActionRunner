@@ -1,18 +1,16 @@
-BeforeAll {
-    $scriptPath = Join-Path $PSScriptRoot "..\scripts\cleanup-workspace.ps1"
-
-    # Create test workspace structure
-    $script:testRoot = Join-Path $TestDrive "workspace-test"
-    New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
-}
+$scriptPath = Join-Path $PSScriptRoot "..\scripts\cleanup-workspace.ps1"
 
 Describe "cleanup-workspace.ps1" {
     BeforeEach {
+        # Create test workspace structure
+        $script:testRoot = Join-Path $TestDrive "workspace-test"
+        New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
+
         # Clean up test root before each test
         if (Test-Path $script:testRoot) {
             Remove-Item -Path $script:testRoot -Recurse -Force -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
         }
-        New-Item -ItemType Directory -Path $script:testRoot -Force | Out-Null
         Push-Location $script:testRoot
     }
 
