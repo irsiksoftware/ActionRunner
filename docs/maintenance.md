@@ -257,13 +257,12 @@ Get-ChildItem -Path . -Directory -Recurse -Filter "Library" -ErrorAction Silentl
 
 ## Related Documentation
 
-- [Runner Setup Guide](./runner-setup.md)
-- [Hardware Specifications](./hardware-specs.md)
-- [Docker Setup](../scripts/setup-docker.ps1)
+- [Security Guide](./security.md)
+- [README](../README.md)
 
 ## Support
 
 For issues or questions:
-- Check [Troubleshooting Guide](./troubleshooting.md)
 - Review cleanup logs in `logs/cleanup.log`
+- Check [GitHub Actions troubleshooting guide](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/monitoring-and-troubleshooting-self-hosted-runners)
 - Open issue in repository with log details
