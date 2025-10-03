@@ -178,8 +178,8 @@ function Test-Configuration {
 
     if ($errors.Count -gt 0) {
         Write-ConfigLog "Configuration validation failed with $($errors.Count) error(s):" "ERROR"
-        foreach ($error in $errors) {
-            Write-ConfigLog "  - $error" "ERROR"
+        foreach ($validationError in $errors) {
+            Write-ConfigLog "  - $validationError" "ERROR"
         }
         return $false
     }
