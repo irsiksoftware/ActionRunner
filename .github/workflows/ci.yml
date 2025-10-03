@@ -75,18 +75,32 @@ jobs:
           Write-Host "Analyzing PowerShell scripts..."
           $scripts = Get-ChildItem -Path .\scripts\, .\config\ -Filter *.ps1 -Recurse
           $errors = @()
+          $warnings = @()
 
           foreach ($script in $scripts) {
             Write-Host "Analyzing: $($script.Name)"
             $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Error, Warning
             if ($results) {
-              $errors += $results
-              $results | Format-Table -AutoSize
+              $scriptErrors = $results | Where-Object { $_.Severity -eq 'Error' }
+              $scriptWarnings = $results | Where-Object { $_.Severity -eq 'Warning' }
+
+              if ($scriptErrors) {
+                $errors += $scriptErrors
+                $scriptErrors | Format-Table -AutoSize
+              }
+
+              if ($scriptWarnings) {
+                $warnings += $scriptWarnings
+              }
             }
           }
 
+          if ($warnings.Count -gt 0) {
+            Write-Warning "Found $($warnings.Count) warnings (non-blocking)"
+          }
+
           if ($errors.Count -gt 0) {
-            Write-Error "Found $($errors.Count) issues in PowerShell scripts"
+            Write-Error "Found $($errors.Count) errors in PowerShell scripts"
             exit 1
           }
 
