@@ -66,6 +66,97 @@ cd C:\actions-runner
 .\run.cmd
 ```
 
+## Using the Self-Hosted Runners
+
+### Available Runners
+
+The following self-hosted runners are configured and available:
+
+| Repository | Runner Labels | Docker Support |
+|------------|---------------|----------------|
+| **ActionRunner** | `self-hosted`, `windows`, `docker` | ✅ |
+| **qiflow** | `self-hosted`, `windows`, `docker` | ✅ |
+| **qiflowgo** | `self-hosted`, `windows`, `docker` | ✅ |
+| **gifdistributor** | `self-hosted`, `windows`, `docker` | ✅ |
+
+### Workflow Configuration
+
+To use the self-hosted runners in your GitHub Actions workflows, specify the runner labels in the `runs-on` field:
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, feature/* ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    name: Build and Test
+    runs-on: [self-hosted, windows, docker]  # Use self-hosted runner
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tests
+        shell: powershell  # Use 'powershell' not 'pwsh'
+        run: |
+          Write-Host "Running tests..."
+          # Your test commands here
+```
+
+### Shell Compatibility
+
+**IMPORTANT:** Use `shell: powershell` (Windows PowerShell) instead of `shell: pwsh` (PowerShell Core):
+
+```yaml
+# ✅ CORRECT - Use Windows PowerShell
+- name: My Step
+  shell: powershell
+  run: |
+    Write-Host "This works!"
+
+# ❌ INCORRECT - PowerShell Core not installed
+- name: My Step
+  shell: pwsh
+  run: |
+    Write-Host "This fails!"
+```
+
+### Docker Isolation
+
+All runners support Docker for containerized builds:
+
+```yaml
+jobs:
+  docker-build:
+    runs-on: [self-hosted, windows, docker]
+
+    steps:
+      - name: Build in Docker
+        shell: powershell
+        run: |
+          docker build -t myapp .
+          docker run --rm myapp npm test
+```
+
+### Example Workflows
+
+See the workflows in this repository for complete examples:
+- **[.github/workflows/docker-test.yml](.github/workflows/docker-test.yml)** - Docker isolation testing
+- **[.github/workflows/runner-health.yml](.github/workflows/runner-health.yml)** - Runner health monitoring
+
+### Best Practices
+
+1. **Always specify runner labels explicitly**: `runs-on: [self-hosted, windows, docker]`
+2. **Use `powershell` shell**: Avoid `pwsh` as PowerShell Core is not installed
+3. **Avoid UTF-8 special characters**: Use `[OK]` instead of `✓` in PowerShell output
+4. **Clean up after jobs**: Use `if: always()` for cleanup steps
+5. **Use Docker for untrusted code**: Isolate builds in containers when possible
+
 ## Security Features
 
 This repository includes comprehensive security controls:
@@ -168,4 +259,14 @@ Security improvements and feedback welcome! Please submit issues or pull request
 
 ---
 
-**Last Updated**: 2025-10-03# Self-hosted runners active
+**Last Updated**: 2025-10-03
+
+---
+
+## Active Runners
+
+Self-hosted runners are currently active and processing jobs for the following repositories:
+- ✅ **ActionRunner** (actionrunner-runner)
+- ✅ **qiflow** (qiflow-runner)
+- ✅ **qiflowgo** (qiflowgo-runner)
+- ✅ **gifdistributor** (gifdistributor-runner)
