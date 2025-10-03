@@ -19,13 +19,26 @@ jobs:
       - name: Run Pester tests
         shell: powershell
         run: |
-          Write-Host "Installing Pester if not present..."
-          if (-not (Get-Module -ListAvailable -Name Pester)) {
-            Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
+          Write-Host "Installing Pester 5.x..."
+          # Remove old Pester version if present
+          $oldPester = Get-Module -ListAvailable -Name Pester | Where-Object { $_.Version -lt '5.0' }
+          if ($oldPester) {
+            Write-Host "Removing old Pester version(s)..."
           }
 
+          # Install Pester 5.x
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
           Write-Host "Running test suite..."
-          $testResults = Invoke-Pester -Path .\tests\ -PassThru -OutputFormat NUnitXml -OutputFile test-results.xml
+          $config = New-PesterConfiguration
+          $config.Run.Path = '.\tests\'
+          $config.Run.PassThru = $true
+          $config.TestResult.Enabled = $true
+          $config.TestResult.OutputFormat = 'NUnitXml'
+          $config.TestResult.OutputPath = 'test-results.xml'
+
+          $testResults = Invoke-Pester -Configuration $config
 
           if ($testResults.FailedCount -gt 0) {
             Write-Error "Tests failed: $($testResults.FailedCount) failures"
@@ -54,6 +67,8 @@ jobs:
         run: |
           Write-Host "Installing PSScriptAnalyzer if not present..."
           if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            # Install NuGet provider first to avoid prompts
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
             Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
           }
 
