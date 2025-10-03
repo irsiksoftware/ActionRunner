@@ -178,11 +178,63 @@ jobs:
           path: test-results.xml
           if-no-files-found: ignore
 
+  # Script Validation
+  script-validation:
+    name: 🔍 Script Validation
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run PSScriptAnalyzer
+        shell: powershell
+        run: |
+          Write-Host "Installing PSScriptAnalyzer if not present..."
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force -Scope CurrentUser -ErrorAction SilentlyContinue | Out-Null
+            Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
+          }
+
+          Write-Host "Analyzing PowerShell scripts..."
+          $scripts = Get-ChildItem -Path .\scripts\, .\config\ -Filter *.ps1 -Recurse
+          $errors = @()
+          $warnings = @()
+
+          foreach ($script in $scripts) {
+            Write-Host "Analyzing: $($script.Name)"
+            $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Error, Warning
+            if ($results) {
+              $scriptErrors = $results | Where-Object { $_.Severity -eq 'Error' }
+              $scriptWarnings = $results | Where-Object { $_.Severity -eq 'Warning' }
+
+              if ($scriptErrors) {
+                $errors += $scriptErrors
+                $scriptErrors | Format-Table -AutoSize
+              }
+
+              if ($scriptWarnings) {
+                $warnings += $scriptWarnings
+              }
+            }
+          }
+
+          if ($warnings.Count -gt 0) {
+            Write-Warning "Found $($warnings.Count) warnings (non-blocking)"
+          }
+
+          if ($errors.Count -gt 0) {
+            Write-Error "Found $($errors.Count) errors in PowerShell scripts"
+            exit 1
+          }
+
+          Write-Host "All scripts validated successfully! [OK]" -ForegroundColor Green
+
   # Generate Capability Status Report
   capability-status:
     name: 📊 Generate Capability Status
     runs-on: [self-hosted, windows]
-    needs: [core-infrastructure, webapp-support, docker-support, mobile-support, ai-support, integration-tests]
+    needs: [core-infrastructure, webapp-support, docker-support, mobile-support, ai-support, integration-tests, script-validation]
     if: always()
 
     steps:
@@ -245,18 +297,21 @@ jobs:
           $webappStatus = "${{ needs.webapp-support.result }}"
           $dockerStatus = "${{ needs.docker-support.result }}"
           $integrationStatus = "${{ needs.integration-tests.result }}"
+          $scriptStatus = "${{ needs.script-validation.result }}"
 
           Write-Host "`n=== JOB STATUS SUMMARY ===" -ForegroundColor Cyan
           Write-Host "⚙️  Core Infrastructure: $coreStatus"
           Write-Host "🌐 Web Application Support: $webappStatus"
           Write-Host "🐳 Docker & Container Support: $dockerStatus"
           Write-Host "🔄 Integration & Workflows: $integrationStatus"
+          Write-Host "🔍 Script Validation: $scriptStatus"
           Write-Host "📱 Mobile Build Support: ${{ needs.mobile-support.result }} (optional)"
           Write-Host "🤖 AI/LLM Build Support: ${{ needs.ai-support.result }} (optional)"
 
           # Core capabilities must pass (not optional)
           if ($coreStatus -eq "success" -and $webappStatus -eq "success" -and
-              $dockerStatus -eq "success" -and $integrationStatus -eq "success") {
+              $dockerStatus -eq "success" -and $integrationStatus -eq "success" -and
+              $scriptStatus -eq "success") {
             Write-Host "`n✓ All core build capabilities are functional!" -ForegroundColor Green
             exit 0
           } else {
