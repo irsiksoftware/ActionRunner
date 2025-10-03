@@ -1,0 +1,239 @@
+# Windows Firewall Configuration for GitHub Actions Self-Hosted Runner
+# This configuration implements defense-in-depth network security for the runner
+
+# IMPORTANT: Review and customize these rules for your environment before applying
+# Test in a non-production environment first
+
+# How to apply these rules:
+# Use the companion PowerShell script: config/apply-firewall-rules.ps1
+
+---
+firewall_configuration:
+  description: "GitHub Actions Runner Network Security Rules"
+  profile: "All"  # Apply to Domain, Private, and Public profiles
+
+  # INBOUND RULES - Default Deny All
+  inbound_rules:
+    default_policy: "Block"
+
+    # Allow only essential inbound traffic
+    allowed_rules:
+      - name: "GitHub Actions Runner - RDP Admin Access"
+        description: "Allow RDP for administrative access only from jump box"
+        enabled: true
+        direction: "Inbound"
+        action: "Allow"
+        protocol: "TCP"
+        local_port: 3389
+        remote_addresses:
+          - "10.0.1.10"  # CUSTOMIZE: Your jump box/bastion host IP
+        profile: "Domain,Private"
+        notes: "Restrict to specific admin source IPs. Consider disabling when not needed."
+
+      - name: "GitHub Actions Runner - SSH Admin Access"
+        description: "Allow SSH for administrative access (if OpenSSH is installed)"
+        enabled: false  # Enable only if using SSH instead of RDP
+        direction: "Inbound"
+        action: "Allow"
+        protocol: "TCP"
+        local_port: 22
+        remote_addresses:
+          - "10.0.1.10"  # CUSTOMIZE: Your jump box/bastion host IP
+        profile: "Domain,Private"
+        notes: "Enable only if using OpenSSH for management"
+
+      - name: "GitHub Actions Runner - WinRM Admin Access"
+        description: "Allow WinRM for remote management (optional)"
+        enabled: false  # Enable only if required
+        direction: "Inbound"
+        action: "Allow"
+        protocol: "TCP"
+        local_port: 5986  # HTTPS WinRM
+        remote_addresses:
+          - "10.0.1.10"  # CUSTOMIZE: Your management server IP
+        profile: "Domain,Private"
+        notes: "Use HTTPS WinRM only (port 5986), not HTTP (5985)"
+
+    # Block all other inbound traffic
+    blocked_rules:
+      - name: "GitHub Actions Runner - Block All Other Inbound"
+        description: "Default deny all other inbound traffic"
+        enabled: true
+        direction: "Inbound"
+        action: "Block"
+        protocol: "Any"
+        local_port: "Any"
+        remote_addresses: "Any"
+        profile: "All"
+
+  # OUTBOUND RULES - Allow only GitHub services
+  outbound_rules:
+    default_policy: "Block"
+
+    allowed_rules:
+      # DNS Resolution
+      - name: "GitHub Actions Runner - DNS"
+        description: "Allow DNS queries for name resolution"
+        enabled: true
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "UDP"
+        remote_port: 53
+        remote_addresses:
+          - "8.8.8.8"  # CUSTOMIZE: Your internal DNS servers
+          - "8.8.4.4"
+        profile: "All"
+        notes: "Update with your organization's DNS servers"
+
+      # GitHub API and Services
+      - name: "GitHub Actions Runner - GitHub HTTPS"
+        description: "Allow HTTPS to GitHub services"
+        enabled: true
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "TCP"
+        remote_port: 443
+        remote_addresses:
+          # GitHub IP ranges (update periodically from https://api.github.com/meta)
+          - "140.82.112.0/20"
+          - "143.55.64.0/20"
+          - "185.199.108.0/22"
+          - "192.30.252.0/22"
+          - "20.175.192.0/19"
+          - "20.199.39.0/24"
+          - "20.200.245.0/24"
+          - "20.201.28.0/23"
+          - "20.205.243.0/24"
+          - "20.207.73.0/24"
+          - "20.27.177.0/24"
+          - "20.29.134.0/24"
+          - "20.87.245.0/24"
+          - "Any"  # CUSTOMIZE: Replace "Any" with specific GitHub IPs
+        profile: "All"
+        notes: "GitHub IP ranges change. Update from https://api.github.com/meta regularly"
+
+      - name: "GitHub Actions Runner - GitHub Git"
+        description: "Allow Git protocol to GitHub (for legacy support)"
+        enabled: false  # Git over HTTPS is preferred
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "TCP"
+        remote_port: 9418
+        remote_addresses: "Any"
+        profile: "All"
+        notes: "Disable if using only HTTPS for Git operations"
+
+      # Windows Update (for security patches)
+      - name: "GitHub Actions Runner - Windows Update"
+        description: "Allow Windows Update for security patches"
+        enabled: true
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "TCP"
+        remote_port: 443
+        program: "%SystemRoot%\\System32\\svchost.exe"
+        service: "wuauserv"
+        profile: "All"
+        notes: "Essential for security updates. Consider scheduling updates during maintenance windows"
+
+      # NTP Time Synchronization
+      - name: "GitHub Actions Runner - NTP"
+        description: "Allow NTP for time synchronization"
+        enabled: true
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "UDP"
+        remote_port: 123
+        remote_addresses:
+          - "time.windows.com"  # CUSTOMIZE: Use your internal NTP server
+        profile: "All"
+        notes: "Accurate time is critical for certificate validation and logging"
+
+      # Package managers (if needed for builds)
+      - name: "GitHub Actions Runner - NPM Registry"
+        description: "Allow access to NPM registry (if needed)"
+        enabled: false  # Enable only if workflows use NPM
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "TCP"
+        remote_port: 443
+        remote_addresses:
+          - "registry.npmjs.org"
+        profile: "All"
+        notes: "Enable only if workflows require NPM packages"
+
+      - name: "GitHub Actions Runner - NuGet"
+        description: "Allow access to NuGet.org (if needed)"
+        enabled: false  # Enable only if workflows use NuGet
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "TCP"
+        remote_port: 443
+        remote_addresses:
+          - "api.nuget.org"
+          - "nuget.org"
+        profile: "All"
+        notes: "Enable only if workflows require NuGet packages"
+
+      - name: "GitHub Actions Runner - Docker Hub"
+        description: "Allow access to Docker Hub (if using containers)"
+        enabled: false  # Enable if using Docker containers
+        direction: "Outbound"
+        action: "Allow"
+        protocol: "TCP"
+        remote_port: 443
+        remote_addresses:
+          - "registry-1.docker.io"
+          - "auth.docker.io"
+          - "production.cloudflare.docker.com"
+        profile: "All"
+        notes: "Required if workflows use Docker containers. Consider using private registry."
+
+    # Block all other outbound traffic
+    blocked_rules:
+      - name: "GitHub Actions Runner - Block All Other Outbound"
+        description: "Default deny all other outbound traffic"
+        enabled: true
+        direction: "Outbound"
+        action: "Block"
+        protocol: "Any"
+        remote_port: "Any"
+        remote_addresses: "Any"
+        profile: "All"
+        notes: "This rule prevents data exfiltration and lateral movement"
+
+# Additional Security Recommendations
+security_notes:
+  - "Review and update GitHub IP ranges monthly from https://api.github.com/meta"
+  - "Enable Windows Firewall logging for both allowed and blocked connections"
+  - "Monitor firewall logs for suspicious blocked connection attempts"
+  - "Consider implementing additional network segmentation (VLAN isolation)"
+  - "Use Windows Event Log to track firewall rule changes"
+  - "Test firewall rules in a lab environment before production deployment"
+  - "Document all exceptions and their business justification"
+  - "Regularly audit firewall rules (quarterly minimum)"
+  - "Implement alerting for firewall rule modifications"
+  - "Consider using Windows Defender Firewall with Advanced Security for centralized management"
+
+# Logging Configuration
+logging:
+  enabled: true
+  log_dropped_packets: true
+  log_successful_connections: true
+  log_file_location: "%SystemRoot%\\System32\\LogFiles\\Firewall\\pfirewall.log"
+  max_log_size_kb: 16384  # 16 MB
+  notes: "Regularly review logs for security analysis"
+
+# Maintenance Schedule
+maintenance:
+  ip_range_update_frequency: "Monthly"
+  rule_audit_frequency: "Quarterly"
+  log_review_frequency: "Weekly"
+  security_test_frequency: "Quarterly"
+
+# Compliance
+compliance_notes:
+  - "These rules implement defense-in-depth as per NIST SP 800-53 SC-7"
+  - "Default deny aligns with CIS Controls v8 Control 13.1"
+  - "Logging supports audit requirements for SOC 2, ISO 27001"
+  - "Document all rule changes for compliance audits"
