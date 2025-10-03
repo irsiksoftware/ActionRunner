@@ -1,0 +1,27 @@
+# .NET Build Environment
+# Based on Windows Server Core with .NET SDK
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0-nanoserver-ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Set up environment variables
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1 \
+    DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1 \
+    NUGET_XMLDOC_MODE=skip
+
+# Install PowerShell and Git (requires servercore base for choco)
+USER ContainerAdministrator
+
+# Create working directory
+RUN New-Item -ItemType Directory -Path C:\workspace -Force
+
+# Set working directory
+WORKDIR C:\workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD powershell -Command "dotnet --version"
+
+# Entry point
+CMD ["powershell.exe"]

@@ -1,0 +1,31 @@
+# Unity Build Environment
+# Based on Windows Server Core with Unity Build Support
+
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Set up environment variables
+ENV UNITY_VERSION=2022.3.17f1 \
+    UNITY_CHANGESET=3e8111cac19f
+
+# Install Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install Git, 7zip, and other build tools
+RUN choco install -y git 7zip visualstudio2022buildtools
+
+# Create working directory
+RUN New-Item -ItemType Directory -Path C:\workspace -Force
+
+# Set working directory
+WORKDIR C:\workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD powershell -Command "if (Test-Path C:\workspace) { exit 0 } else { exit 1 }"
+
+# Entry point
+CMD ["powershell.exe"]

@@ -1,0 +1,37 @@
+# GPU-enabled AI Environment
+# Based on NVIDIA CUDA Windows container with Python
+
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Set up environment variables
+ENV PYTHON_VERSION=3.11.7 \
+    CUDA_VERSION=12.3 \
+    CUDNN_VERSION=8.9
+
+# Install Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install Python and Git
+RUN choco install -y python --version=3.11.7 git
+
+# Install PyTorch with CUDA support and other ML libraries
+RUN python -m pip install --upgrade pip && \
+    pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121 && \
+    pip install tensorflow transformers numpy pandas scikit-learn jupyter
+
+# Create working directory
+RUN New-Item -ItemType Directory -Path C:\workspace -Force
+
+# Set working directory
+WORKDIR C:\workspace
+
+# Health check - verify GPU access
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD powershell -Command "python -c 'import torch; exit(0 if torch.cuda.is_available() else 1)'"
+
+# Entry point
+CMD ["powershell.exe"]

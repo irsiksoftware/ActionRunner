@@ -1,0 +1,35 @@
+# Python Test Environment
+# Based on Windows Server Core with Python 3.11
+
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Set up environment variables
+ENV PYTHON_VERSION=3.11.7 \
+    PYTHON_PATH=C:\Python311
+
+# Install Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install Python, Git, and build tools
+RUN choco install -y python --version=3.11.7 git
+
+# Upgrade pip and install common test tools
+RUN python -m pip install --upgrade pip setuptools wheel && \
+    pip install pytest pytest-cov pytest-xdist black flake8 mypy
+
+# Create working directory
+RUN New-Item -ItemType Directory -Path C:\workspace -Force
+
+# Set working directory
+WORKDIR C:\workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD powershell -Command "python --version"
+
+# Entry point
+CMD ["powershell.exe"]
