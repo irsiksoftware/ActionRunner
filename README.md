@@ -1,171 +1,316 @@
 # ActionRunner
 
-A secure, self-hosted GitHub Actions runner setup for Windows environments with comprehensive security controls and best practices.
+Dakota Irsik's self-hosted GitHub Actions runner infrastructure for private projects.
 
-## ⚠️ Security Notice
+## Overview
 
-**CRITICAL**: Self-hosted runners should NEVER be used with public repositories or untrusted pull requests. Malicious code can execute arbitrary commands, steal secrets, and compromise your infrastructure.
+This is the configuration and setup for my self-hosted Windows runners that power CI/CD for:
+- **QiFlow** - Unity game project
+- **LogSmith** - .NET logging library
+- **TalkSmith** - React Native communication app
+- **Other private repos** - Python tools, experiments, etc.
 
-For detailed security information, see [Security Documentation](docs/security.md).
+**Critical**: These runners are for MY private repos only. Never enable for public repositories.
 
-## Quick Start
+## Runner Label Strategy
 
-### 1. Download and Install GitHub Actions Runner
+Jobs are routed to appropriate runners using labels:
 
-```powershell
-# Create runner directory
-mkdir C:\actions-runner
-cd C:\actions-runner
+| Label | Purpose | Use For |
+|-------|---------|---------|
+| `self-hosted` | Base label for all my runners | All jobs |
+| `windows` | Windows environment | All jobs (default OS) |
+| `unity` | Unity build environment | QiFlow builds |
+| `dotnet` | .NET SDK installed | LogSmith, C# projects |
+| `python` | Python environment | Scripts, tools, automation |
+| `react-native` | React Native setup | TalkSmith builds |
+| `gpu` | NVIDIA GPU available | ML training, GPU-accelerated builds |
+| `docker` | Docker isolation enabled | Untrusted/experimental code |
 
-# Download the latest runner (check GitHub for current version)
-Invoke-WebRequest -Uri https://github.com/actions/runner/releases/download/v2.311.0/actions-runner-win-x64-2.311.0.zip -OutFile actions-runner-win-x64.zip
-
-# Extract
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-[System.IO.Compression.ZipFile]::ExtractToDirectory("$PWD\actions-runner-win-x64.zip", "$PWD")
+**Example workflow label usage:**
+```yaml
+jobs:
+  build:
+    runs-on: [self-hosted, windows, unity]
 ```
 
-### 2. Security Setup (REQUIRED)
+## Workflow Examples
 
-**Before configuring the runner, implement security controls:**
+### Unity Build (QiFlow)
+
+```yaml
+name: Unity Build
+on: [push, pull_request]
+
+jobs:
+  build-windows:
+    runs-on: [self-hosted, windows, unity]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build Unity Project
+        run: |
+          & "C:\Program Files\Unity\Hub\Editor\2022.3.10f1\Editor\Unity.exe" `
+            -quit -batchmode -nographics `
+            -projectPath . `
+            -buildWindows64Player build/QiFlow.exe `
+            -logFile build/unity.log
+
+      - name: Upload Build
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-build
+          path: build/QiFlow.exe
+```
+
+### .NET Library (LogSmith)
+
+```yaml
+name: .NET Build and Test
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: [self-hosted, windows, dotnet]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Restore dependencies
+        run: dotnet restore
+
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+
+      - name: Test
+        run: dotnet test --no-build --configuration Release --verbosity normal
+
+      - name: Pack NuGet
+        run: dotnet pack --no-build --configuration Release --output nupkgs/
+
+      - name: Upload Package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nuget-package
+          path: nupkgs/*.nupkg
+```
+
+### React Native (TalkSmith)
+
+```yaml
+name: React Native Build
+on: [push, pull_request]
+
+jobs:
+  build-android:
+    runs-on: [self-hosted, windows, react-native]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run tests
+        run: npm test
+
+      - name: Build Android APK
+        run: |
+          cd android
+          .\gradlew.bat assembleRelease
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: android/app/build/outputs/apk/release/*.apk
+```
+
+### Python Scripts
+
+```yaml
+name: Python Tests
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: [self-hosted, windows, python]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run tests
+        run: pytest tests/ --verbose
+
+      - name: Run linting
+        run: |
+          flake8 src/
+          black --check src/
+```
+
+### Docker Isolated Execution (Untrusted Code)
+
+```yaml
+name: Run in Docker
+on: [push, pull_request]
+
+jobs:
+  test-untrusted:
+    runs-on: [self-hosted, windows, docker]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run tests in isolated container
+        run: |
+          .\scripts\run-in-docker.ps1 `
+            -Image "actionrunner/python:latest" `
+            -Command "pytest tests/" `
+            -ResourceLimits
+```
+
+### GPU-Accelerated Workloads
+
+```yaml
+name: ML Training
+on: workflow_dispatch
+
+jobs:
+  train:
+    runs-on: [self-hosted, windows, gpu]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Verify GPU
+        run: nvidia-smi
+
+      - name: Train Model
+        run: python train.py --use-gpu --epochs 100
+```
+
+## Quick Setup
+
+### Initial Runner Installation
 
 ```powershell
-# Run as Administrator
-
-# Step 1: Create secure service account with limited permissions
+# 1. Security setup (run as Administrator)
 .\config\runner-user-setup.ps1
-
-# Step 2: Apply firewall rules for network isolation
 .\config\apply-firewall-rules.ps1
 
-# Step 3: Review and customize security settings
-notepad .\docs\security.md
-notepad .\config\firewall-rules.yaml
-```
+# 2. Docker setup (recommended)
+.\scripts\setup-docker.ps1 -ConfigureGPU -MaxCPUs 8 -MaxMemoryGB 16
 
-### 3. Configure Runner
-
-```powershell
-# Configure the runner (use the service account created above)
-.\config.cmd --url https://github.com/YOUR-ORG/YOUR-REPO --token YOUR-TOKEN --runasservice
-
-# When prompted, use the GitHubRunner account created by runner-user-setup.ps1
-```
-
-### 4. Verify Security Configuration
-
-```powershell
-# Check service is running as limited user
-Get-Service actions.runner.* | Select-Object Name, Status, StartType
-
-# Verify firewall rules are active
-Get-NetFirewallRule -DisplayName "GitHub Actions Runner*"
-
-# Test runner
+# 3. Configure runner for a specific repo
 cd C:\actions-runner
-.\run.cmd
+.\config.cmd --url https://github.com/DakotaIrsik/YOUR-REPO --token YOUR-TOKEN --runasservice
+
+# 4. Verify
+Get-Service actions.runner.* | Select-Object Name, Status
 ```
+
+### Docker Images Available
+
+Pre-built images for different workloads:
+- `actionrunner/unity:latest` - Unity builds
+- `actionrunner/dotnet:latest` - .NET projects
+- `actionrunner/python:latest` - Python development
+- `actionrunner/gpu:latest` - GPU workloads with CUDA
 
 ## Security Features
 
-This repository includes comprehensive security controls:
+- **Network Isolation**: Firewall rules restrict traffic to GitHub only
+- **Service Account**: Runs as `GitHubRunner` user with minimal permissions
+- **Docker Isolation**: Container-based execution for untrusted code
+- **Audit Logging**: Comprehensive logging to `logs/` directory
+- **Token Security**: Short-lived tokens, never committed to repos
 
-- ✅ **Network Isolation**: Firewall rules restricting inbound/outbound traffic
-- ✅ **Least Privilege**: Dedicated service account with minimal permissions
-- ✅ **Secrets Management**: Best practices for GitHub secrets and tokens
-- ✅ **Container Isolation**: Docker-based workflow execution
-- ✅ **Audit Logging**: Comprehensive logging and monitoring
-- ✅ **Documentation**: Security risks, best practices, and compliance guidance
+## File Structure
 
-## Documentation
-
-- **[Security Guide](docs/security.md)**: Comprehensive security documentation
-  - Security risks and mitigation strategies
-  - Network isolation and firewall configuration
-  - Token management and rotation
-  - Container isolation with Docker
-  - Monitoring and incident response
-  - Compliance considerations
-
-## Configuration Files
-
-- **[config/firewall-rules.yaml](config/firewall-rules.yaml)**: Windows Firewall rules configuration
-- **[config/runner-user-setup.ps1](config/runner-user-setup.ps1)**: Service account creation script
-- **[config/apply-firewall-rules.ps1](config/apply-firewall-rules.ps1)**: Firewall rules application script
-
-## Prerequisites
-
-- Windows 10/11 or Windows Server 2019/2022
-- PowerShell 5.0 or higher
-- Administrator access for initial setup
-- Private GitHub repository (NEVER use with public repos)
-- Docker Desktop (optional, for container isolation)
+```
+ActionRunner/
+├── config/                     # Security configuration
+│   ├── firewall-rules.yaml    # Network isolation rules
+│   ├── runner-user-setup.ps1  # Service account creation
+│   └── apply-firewall-rules.ps1
+├── scripts/                    # Management scripts
+│   ├── setup-docker.ps1       # Docker environment setup
+│   ├── run-in-docker.ps1      # Execute in containers
+│   ├── cleanup-docker.ps1     # Container cleanup
+│   ├── collect-logs.ps1       # Log aggregation
+│   ├── rotate-logs.ps1        # Log rotation
+│   └── analyze-logs.ps1       # Log analysis
+├── logs/                       # Audit trail and logs
+├── tests/                      # Pester test suite
+└── docs/                       # Detailed documentation
+    ├── security.md            # Security guide
+    ├── docker-isolation.md    # Container setup
+    └── logging.md             # Logging system
+```
 
 ## Maintenance
 
-### Regular Tasks
-
-**Weekly:**
-- Review runner logs in `C:\actions-runner\_diag\`
-- Check firewall logs for blocked connection attempts
-- Verify runner service status
-
-**Monthly:**
-- Rotate access tokens
-- Update GitHub IP ranges in firewall rules
-- Apply Windows security updates
-- Review security logs
-
-**Quarterly:**
-- Full security audit
-- Review and update security policies
-- Test incident response procedures
-
-### Updating the Runner
-
+### Weekly
 ```powershell
-# Stop the service
+# Review logs
+.\scripts\analyze-logs.ps1
+
+# Check runner health
+Get-Service actions.runner.*
+```
+
+### Monthly
+```powershell
+# Rotate logs
+.\scripts\rotate-logs.ps1
+
+# Update tokens (regenerate in GitHub settings)
+# Clean up Docker
+.\scripts\cleanup-docker.ps1
+```
+
+### As Needed
+```powershell
+# Run full test suite
+Invoke-Pester -Path .\tests\
+
+# Update runner version
 Stop-Service actions.runner.*
-
-# Download and extract new version (check GitHub for latest)
-# Then re-run config
-
-# Start the service
+# Download new version from GitHub
 Start-Service actions.runner.*
 ```
 
 ## Troubleshooting
 
-### Runner Won't Start
-1. Check service account permissions
-2. Verify firewall rules allow GitHub connectivity
-3. Review logs in `_diag` directory
+**Runner offline?**
+```powershell
+Get-Service actions.runner.* | Restart-Service
+.\scripts\collect-logs.ps1  # Check logs/collected/
+```
 
-### Network Connectivity Issues
-1. Test HTTPS connectivity: `Test-NetConnection github.com -Port 443`
-2. Review firewall logs
-3. Verify DNS resolution
+**Build failing?**
+- Check runner has correct labels for your job
+- Verify required SDK/tools installed on runner
+- Check firewall isn't blocking required connections
 
-### Permission Denied Errors
-1. Ensure service account has access to runner directory
-2. Check file system permissions
-3. Review Windows Event Logs
+**Docker issues?**
+```powershell
+docker ps -a  # Check container status
+.\scripts\cleanup-docker.ps1  # Clean up
+```
 
-## Support
+## Documentation
 
-For issues or questions:
-- Review [Security Documentation](docs/security.md)
-- Check GitHub Actions [troubleshooting guide](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/monitoring-and-troubleshooting-self-hosted-runners)
-- Contact your organization's security team
+- **[docs/security.md](docs/security.md)** - Security risks, best practices, compliance
+- **[docs/docker-isolation.md](docs/docker-isolation.md)** - Container isolation setup
+- **[docs/logging.md](docs/logging.md)** - Audit trail and monitoring
+- **[tests/README.md](tests/README.md)** - Test suite documentation
 
-## License
+## Projects Using This Runner
 
-This configuration repository is provided as-is for security hardening of GitHub Actions self-hosted runners.
-
-## Contributing
-
-Security improvements and feedback welcome! Please submit issues or pull requests.
+- **QiFlow** - Unity game (labels: unity, windows)
+- **LogSmith** - .NET library (labels: dotnet, windows)
+- **TalkSmith** - React Native app (labels: react-native, windows)
+- Various Python tools and experiments (labels: python, windows)
 
 ---
 
-**Last Updated**: 2025-10-03
+**Last Updated**: 2025-10-03 | Dakota Irsik's Internal Infrastructure
