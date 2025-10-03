@@ -187,10 +187,10 @@ try {
     $connectivityResults = @()
     $allConnected = $true
 
-    foreach ($host in $githubHosts) {
-        $pingResult = Test-Connection -ComputerName $host -Count 2 -Quiet -ErrorAction SilentlyContinue
+    foreach ($githubHost in $githubHosts) {
+        $pingResult = Test-Connection -ComputerName $githubHost -Count 2 -Quiet -ErrorAction SilentlyContinue
         $connectivityResults += @{
-            Host = $host
+            Host = $githubHost
             Connected = $pingResult
         }
         if (-not $pingResult) { $allConnected = $false }
