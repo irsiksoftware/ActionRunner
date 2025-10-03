@@ -1,0 +1,39 @@
+# Python Test Environment
+# Isolated container for running Python tests and scripts
+
+FROM python:3.11-slim
+
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    build-essential \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common Python testing tools
+RUN pip install --no-cache-dir \
+    pytest \
+    pytest-cov \
+    black \
+    flake8 \
+    mypy \
+    tox
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Set security limits
+RUN useradd -m -s /bin/bash runner && \
+    chown -R runner:runner /workspace
+
+# Set resource limits (can be overridden)
+ENV PYTHONUNBUFFERED=1
+ENV MAX_WORKERS=4
+
+USER runner
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD python --version || exit 1
+
+CMD ["/bin/bash"]

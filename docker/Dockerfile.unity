@@ -1,0 +1,38 @@
+# Unity Build Environment
+# Isolated container for building Unity projects
+
+FROM ubuntu:22.04
+
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    wget \
+    curl \
+    git \
+    unzip \
+    libglu1-mesa \
+    libxcursor1 \
+    libxrandr2 \
+    libxi6 \
+    libxinerama1 \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set up Unity Hub and Unity Editor
+# Version should be specified via build args
+ARG UNITY_VERSION=2022.3.10f1
+ENV UNITY_VERSION=${UNITY_VERSION}
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Set security limits
+RUN useradd -m -s /bin/bash runner && \
+    chown -R runner:runner /workspace
+
+USER runner
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD test -d /workspace || exit 1
+
+CMD ["/bin/bash"]

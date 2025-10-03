@@ -1,0 +1,30 @@
+# .NET Build Environment
+# Isolated container for building .NET projects
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0
+
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Set security limits
+RUN useradd -m -s /bin/bash runner && \
+    chown -R runner:runner /workspace
+
+# Configure .NET settings
+ENV DOTNET_CLI_TELEMETRY_OPTOUT=1
+ENV DOTNET_SKIP_FIRST_TIME_EXPERIENCE=1
+ENV NUGET_XMLDOC_MODE=skip
+
+USER runner
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD dotnet --version || exit 1
+
+CMD ["/bin/bash"]

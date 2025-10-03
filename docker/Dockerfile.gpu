@@ -1,0 +1,40 @@
+# GPU-Enabled AI Environment
+# Isolated container with CUDA support for ML/AI workloads
+
+FROM nvidia/cuda:12.2.0-runtime-ubuntu22.04
+
+# Install base dependencies
+RUN apt-get update && apt-get install -y \
+    python3 \
+    python3-pip \
+    git \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install common ML frameworks
+RUN pip3 install --no-cache-dir \
+    torch \
+    tensorflow \
+    numpy \
+    pandas \
+    scikit-learn \
+    jupyter
+
+# Create workspace directory
+WORKDIR /workspace
+
+# Set security limits
+RUN useradd -m -s /bin/bash runner && \
+    chown -R runner:runner /workspace
+
+# GPU settings
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
+
+USER runner
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD python3 --version && nvidia-smi || exit 1
+
+CMD ["/bin/bash"]
