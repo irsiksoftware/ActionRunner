@@ -141,20 +141,28 @@ jobs:
         run: pytest tests/gpu/ -v --tb=short
 
   # Example: Docker Isolated Job (for untrusted code)
+  # Note: Windows runners must use 'docker run' command, not 'container:' key
   docker-isolated:
     runs-on: [self-hosted, windows, docker]
-    container:
-      image: mcr.microsoft.com/dotnet/sdk:8.0
-      options: --cpus 2 --memory 4g
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Run in isolated container
+      - name: Run in isolated Docker container
+        shell: powershell
         run: |
-          dotnet --version
-          echo "Running in isolated Docker container"
+          # Pull image if not present
+          docker pull mcr.microsoft.com/dotnet/sdk:8.0
+
+          # Run in isolated container with resource limits
+          docker run --rm `
+            --cpus 2 `
+            --memory 4g `
+            -v "${PWD}:C:\workspace" `
+            -w C:\workspace `
+            mcr.microsoft.com/dotnet/sdk:8.0 `
+            powershell -Command "dotnet --version; Write-Host 'Running in isolated Docker container'"
 
   # Example: Multi-platform test
   cross-platform-test:
