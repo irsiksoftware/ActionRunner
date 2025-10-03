@@ -19,38 +19,38 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Verify Docker is available
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Checking Docker availability..."
           docker --version
           docker info
-          Write-Host "✓ Docker is available" -ForegroundColor Green
+          Write-Host "[OK] Docker is available" -ForegroundColor Green
 
       - name: Test Docker container execution
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Testing basic container execution..."
           docker run --rm hello-world
-          Write-Host "✓ Container execution successful" -ForegroundColor Green
+          Write-Host "[OK] Container execution successful" -ForegroundColor Green
 
       - name: Test resource limits
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Testing container with resource limits..."
           docker run --rm --cpus 1 --memory 512m alpine:latest echo "Resource limits applied successfully"
-          Write-Host "✓ Resource limits working" -ForegroundColor Green
+          Write-Host "[OK] Resource limits working" -ForegroundColor Green
 
       - name: Test Python container isolation
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Testing Python execution in isolated container..."
           docker run --rm python:3.11-alpine python -c "print('Hello from isolated container')"
-          Write-Host "✓ Python container isolation working" -ForegroundColor Green
+          Write-Host "[OK] Python container isolation working" -ForegroundColor Green
 
       - name: Cleanup Docker resources
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "Cleaning up Docker resources..."
           docker system prune -f
-          Write-Host "✓ Cleanup complete" -ForegroundColor Green
+          Write-Host "[OK] Cleanup complete" -ForegroundColor Green

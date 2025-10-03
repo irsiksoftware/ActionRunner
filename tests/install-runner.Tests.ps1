@@ -82,6 +82,22 @@ Describe "install-runner.ps1" {
         It "Should define Set-FirewallRules function" {
             $scriptContent | Should -Match 'function Set-FirewallRules'
         }
+
+        It "Should define Install-NodeJSAndPnpm function" {
+            $scriptContent | Should -Match 'function Install-NodeJSAndPnpm'
+        }
+
+        It "Should define Install-PythonStack function" {
+            $scriptContent | Should -Match 'function Install-PythonStack'
+        }
+
+        It "Should define Install-DockerStack function" {
+            $scriptContent | Should -Match 'function Install-DockerStack'
+        }
+
+        It "Should define Install-JesusProjectStack function" {
+            $scriptContent | Should -Match 'function Install-JesusProjectStack'
+        }
     }
 
     Context "Error Handling" {
@@ -317,6 +333,67 @@ Describe "install-runner.ps1" {
 
         It "Should default IsOrg to false" {
             $params['IsOrg'].ParameterType.Name | Should -Be 'SwitchParameter'
+        }
+    }
+
+    Context "Jesus Project Stack Installation" {
+        BeforeAll {
+            $scriptContent = Get-Content $ScriptPath -Raw
+        }
+
+        It "Should check for Node.js 20 installation" {
+            $scriptContent | Should -Match 'node --version|v20\.'
+        }
+
+        It "Should install Node.js via winget if missing" {
+            $scriptContent | Should -Match 'winget install.*NodeJS'
+        }
+
+        It "Should install pnpm 9 globally" {
+            $scriptContent | Should -Match 'npm install -g pnpm@9|pnpm --version'
+        }
+
+        It "Should configure pnpm cache directory" {
+            $scriptContent | Should -Match 'pnpm config set store-dir'
+        }
+
+        It "Should check for Python 3.11 installation" {
+            $scriptContent | Should -Match 'python --version|Python 3\.11\.'
+        }
+
+        It "Should install Python via winget if missing" {
+            $scriptContent | Should -Match 'winget install.*Python\.3\.11'
+        }
+
+        It "Should install pip-audit and detect-secrets" {
+            $scriptContent | Should -Match 'pip install.*pip-audit.*detect-secrets'
+        }
+
+        It "Should verify Docker installation" {
+            $scriptContent | Should -Match 'docker --version'
+        }
+
+        It "Should check Docker daemon status" {
+            $scriptContent | Should -Match 'docker ps'
+        }
+
+        It "Should verify Docker Buildx availability" {
+            $scriptContent | Should -Match 'docker buildx version'
+        }
+
+        It "Should enable Docker BuildKit" {
+            $scriptContent | Should -Match 'DOCKER_BUILDKIT.*1'
+        }
+
+        It "Should have InstallJesusStack parameter" {
+            $params = (Get-Command $ScriptPath).Parameters
+            $params['InstallJesusStack'].ParameterType.Name | Should -Be 'SwitchParameter'
+        }
+
+        It "Should call all stack installation functions when InstallJesusStack is used" {
+            $scriptContent | Should -Match 'Install-NodeJSAndPnpm'
+            $scriptContent | Should -Match 'Install-PythonStack'
+            $scriptContent | Should -Match 'Install-DockerStack'
         }
     }
 }

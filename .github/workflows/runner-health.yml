@@ -16,7 +16,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Check disk space
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "=== Disk Space Check ===" -ForegroundColor Cyan
           $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 }
@@ -35,12 +35,12 @@ jobs:
             } elseif ($percentFree -lt 20) {
               Write-Warning "WARNING: Drive $($drive.Name) has less than 20% free space"
             } else {
-              Write-Host "✓ Drive $($drive.Name) has adequate space" -ForegroundColor Green
+              Write-Host "[OK] Drive $($drive.Name) has adequate space" -ForegroundColor Green
             }
           }
 
       - name: Check memory usage
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "=== Memory Usage Check ===" -ForegroundColor Cyan
           $os = Get-CimInstance Win32_OperatingSystem
@@ -57,11 +57,11 @@ jobs:
           if ($percentUsed -gt 90) {
             Write-Warning "WARNING: Memory usage is above 90%"
           } else {
-            Write-Host "✓ Memory usage is normal" -ForegroundColor Green
+            Write-Host "[OK] Memory usage is normal" -ForegroundColor Green
           }
 
       - name: Check CPU load
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "=== CPU Load Check ===" -ForegroundColor Cyan
           $cpu = Get-CimInstance Win32_Processor
@@ -72,11 +72,11 @@ jobs:
           if ($cpuLoad -gt 90) {
             Write-Warning "WARNING: CPU load is above 90%"
           } else {
-            Write-Host "✓ CPU load is normal" -ForegroundColor Green
+            Write-Host "[OK] CPU load is normal" -ForegroundColor Green
           }
 
       - name: Check runner service status
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "=== Runner Service Check ===" -ForegroundColor Cyan
           $services = Get-Service -Name "actions.runner.*" -ErrorAction SilentlyContinue
@@ -89,13 +89,13 @@ jobs:
                 exit 1
               }
             }
-            Write-Host "✓ All runner services are running" -ForegroundColor Green
+            Write-Host "[OK] All runner services are running" -ForegroundColor Green
           } else {
             Write-Host "No runner services found (may not be installed)" -ForegroundColor Yellow
           }
 
       - name: Check for old logs
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "=== Log Directory Check ===" -ForegroundColor Cyan
           if (Test-Path .\logs) {
@@ -113,14 +113,14 @@ jobs:
             if ($oldLogs.Count -gt 0) {
               Write-Host "Consider cleaning up $($oldLogs.Count) old log files" -ForegroundColor Yellow
             } else {
-              Write-Host "✓ No old logs found" -ForegroundColor Green
+              Write-Host "[OK] No old logs found" -ForegroundColor Green
             }
           } else {
             Write-Host "Logs directory not found" -ForegroundColor Yellow
           }
 
       - name: Check Docker health (if available)
-        shell: pwsh
+        shell: powershell
         continue-on-error: true
         run: |
           Write-Host "=== Docker Health Check ===" -ForegroundColor Cyan
@@ -136,7 +136,7 @@ jobs:
                 Write-Warning "WARNING: $($oldContainers.Count) stopped containers. Consider cleanup."
               }
 
-              Write-Host "✓ Docker health check complete" -ForegroundColor Green
+              Write-Host "[OK] Docker health check complete" -ForegroundColor Green
             }
           } catch {
             Write-Host "Docker not available or not running" -ForegroundColor Yellow
@@ -144,8 +144,8 @@ jobs:
 
       - name: Summary
         if: always()
-        shell: pwsh
+        shell: powershell
         run: |
           Write-Host "`n=== Health Check Complete ===" -ForegroundColor Cyan
           Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
-          Write-Host "Runner health check completed successfully ✓" -ForegroundColor Green
+          Write-Host "Runner health check completed successfully [OK]" -ForegroundColor Green

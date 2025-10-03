@@ -45,6 +45,18 @@
 .PARAMETER SkipFirewall
     Skip firewall configuration
 
+.PARAMETER InstallNodeJS
+    Install Node.js 20 and pnpm 9 for JavaScript development
+
+.PARAMETER InstallPython
+    Install Python 3.11 and security tools (pip-audit, detect-secrets)
+
+.PARAMETER InstallDocker
+    Verify and configure Docker installation with BuildKit support
+
+.PARAMETER InstallJesusStack
+    Install complete stack for Jesus MCP project (Node.js + Python + Docker)
+
 .EXAMPLE
     .\install-runner.ps1 -OrgOrRepo "DakotaIrsik" -Token "ghp_xxx" -IsOrg -InstallService
 
@@ -54,6 +66,11 @@
     .\install-runner.ps1 -OrgOrRepo "owner/repo" -Token "ghp_xxx" -Labels "self-hosted,windows,dotnet"
 
     Installs a repository-level runner with custom labels
+
+.EXAMPLE
+    .\install-runner.ps1 -OrgOrRepo "DakotaIrsik" -Token "ghp_xxx" -IsOrg -InstallJesusStack
+
+    Installs runner with complete Jesus project stack (Node.js 20, Python 3.11, Docker)
 
 .NOTES
     Requires PowerShell 5.1+ and administrator privileges for service installation
@@ -92,7 +109,19 @@ param(
     [switch]$SkipPrerequisites,
 
     [Parameter(Mandatory = $false)]
-    [switch]$SkipFirewall
+    [switch]$SkipFirewall,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$InstallNodeJS,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$InstallPython,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$InstallDocker,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$InstallJesusStack
 )
 
 $ErrorActionPreference = "Stop"
@@ -416,6 +445,217 @@ function Set-FirewallRules {
     }
 }
 
+function Install-NodeJSAndPnpm {
+    Write-Log "Installing Node.js 20 and pnpm 9..." "INFO"
+
+    # Check if Node.js is already installed
+    try {
+        $nodeVersion = node --version 2>$null
+        if ($nodeVersion -match "v20\.") {
+            Write-Log "Node.js 20 already installed: $nodeVersion" "SUCCESS"
+            $nodeInstalled = $true
+        } else {
+            Write-Log "Node.js installed but not v20.x (current: $nodeVersion)" "WARN"
+            $nodeInstalled = $false
+        }
+    } catch {
+        Write-Log "Node.js not found in PATH" "INFO"
+        $nodeInstalled = $false
+    }
+
+    # Install Node.js 20 using winget if not installed
+    if (-not $nodeInstalled) {
+        Write-Log "Installing Node.js 20.x via winget..."
+        try {
+            winget install OpenJS.NodeJS.LTS --version 20 --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+
+            # Refresh PATH
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+            $nodeVersion = node --version 2>$null
+            Write-Log "Node.js installed successfully: $nodeVersion" "SUCCESS"
+        } catch {
+            Write-Log "Failed to install Node.js via winget: $($_.Exception.Message)" "ERROR"
+            Write-Log "Please install Node.js 20 manually from https://nodejs.org/" "ERROR"
+            throw
+        }
+    }
+
+    # Check if pnpm is installed
+    try {
+        $pnpmVersion = pnpm --version 2>$null
+        if ($pnpmVersion -match "^9\.") {
+            Write-Log "pnpm 9 already installed: $pnpmVersion" "SUCCESS"
+        } else {
+            Write-Log "pnpm installed but not v9.x (current: $pnpmVersion), upgrading..." "WARN"
+            npm install -g pnpm@9 2>&1 | Out-Null
+            $pnpmVersion = pnpm --version
+            Write-Log "pnpm upgraded to: $pnpmVersion" "SUCCESS"
+        }
+    } catch {
+        Write-Log "Installing pnpm 9.x globally..."
+        npm install -g pnpm@9 2>&1 | Out-Null
+
+        # Refresh PATH
+        $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+        $pnpmVersion = pnpm --version
+        Write-Log "pnpm installed successfully: $pnpmVersion" "SUCCESS"
+    }
+
+    # Configure pnpm cache
+    Write-Log "Configuring pnpm cache directory..."
+    $pnpmCacheDir = Join-Path $CacheFolder "pnpm-cache"
+    if (-not (Test-Path $pnpmCacheDir)) {
+        New-Item -ItemType Directory -Path $pnpmCacheDir -Force | Out-Null
+    }
+    pnpm config set store-dir $pnpmCacheDir 2>&1 | Out-Null
+    Write-Log "pnpm cache configured: $pnpmCacheDir" "SUCCESS"
+}
+
+function Install-PythonStack {
+    Write-Log "Installing Python 3.11 and security tools..." "INFO"
+
+    # Check if Python 3.11 is already installed
+    try {
+        $pythonVersion = python --version 2>$null
+        if ($pythonVersion -match "Python 3\.11\.") {
+            Write-Log "Python 3.11 already installed: $pythonVersion" "SUCCESS"
+            $pythonInstalled = $true
+        } else {
+            Write-Log "Python installed but not v3.11.x (current: $pythonVersion)" "WARN"
+            $pythonInstalled = $false
+        }
+    } catch {
+        Write-Log "Python not found in PATH" "INFO"
+        $pythonInstalled = $false
+    }
+
+    # Install Python 3.11 using winget if not installed
+    if (-not $pythonInstalled) {
+        Write-Log "Installing Python 3.11 via winget..."
+        try {
+            winget install Python.Python.3.11 --silent --accept-package-agreements --accept-source-agreements 2>&1 | Out-Null
+
+            # Refresh PATH
+            $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
+
+            $pythonVersion = python --version 2>$null
+            Write-Log "Python installed successfully: $pythonVersion" "SUCCESS"
+        } catch {
+            Write-Log "Failed to install Python via winget: $($_.Exception.Message)" "ERROR"
+            Write-Log "Please install Python 3.11 manually from https://www.python.org/" "ERROR"
+            throw
+        }
+    }
+
+    # Verify pip is available
+    try {
+        $pipVersion = pip --version 2>$null
+        Write-Log "pip installed: $pipVersion" "SUCCESS"
+    } catch {
+        Write-Log "pip not found, attempting to install..." "WARN"
+        python -m ensurepip --upgrade 2>&1 | Out-Null
+        Write-Log "pip installed successfully" "SUCCESS"
+    }
+
+    # Install security tools required by Jesus project
+    Write-Log "Installing Python security tools (pip-audit, detect-secrets)..."
+    try {
+        pip install pip-audit detect-secrets --quiet 2>&1 | Out-Null
+        Write-Log "Security tools installed successfully" "SUCCESS"
+    } catch {
+        Write-Log "Failed to install security tools: $($_.Exception.Message)" "WARN"
+        Write-Log "You may need to install these manually: pip install pip-audit detect-secrets" "WARN"
+    }
+}
+
+function Install-DockerStack {
+    Write-Log "Checking Docker installation..." "INFO"
+
+    # Check if Docker is installed
+    try {
+        $dockerVersion = docker --version 2>$null
+        Write-Log "Docker already installed: $dockerVersion" "SUCCESS"
+    } catch {
+        Write-Log "Docker not found in PATH" "ERROR"
+        Write-Log "Please install Docker Desktop from https://www.docker.com/products/docker-desktop/" "ERROR"
+        Write-Log "After installation, ensure Docker is running and accessible from PowerShell" "ERROR"
+        throw "Docker installation required"
+    }
+
+    # Check Docker is running
+    try {
+        docker ps 2>&1 | Out-Null
+        Write-Log "Docker daemon is running" "SUCCESS"
+    } catch {
+        Write-Log "Docker is installed but not running" "WARN"
+        Write-Log "Please start Docker Desktop and ensure it's running" "WARN"
+    }
+
+    # Check Docker Buildx
+    try {
+        $buildxVersion = docker buildx version 2>$null
+        Write-Log "Docker Buildx available: $buildxVersion" "SUCCESS"
+    } catch {
+        Write-Log "Docker Buildx not available" "WARN"
+        Write-Log "Buildx is required for BuildKit support" "WARN"
+    }
+
+    # Enable BuildKit
+    Write-Log "Configuring Docker BuildKit..."
+    [System.Environment]::SetEnvironmentVariable("DOCKER_BUILDKIT", "1", "Machine")
+    $env:DOCKER_BUILDKIT = "1"
+    Write-Log "Docker BuildKit enabled" "SUCCESS"
+}
+
+function Install-JesusProjectStack {
+    Write-Log "Installing complete Jesus project stack (Node.js + Python + Docker)..." "INFO"
+
+    Install-NodeJSAndPnpm
+    Install-PythonStack
+    Install-DockerStack
+
+    Write-Log "Jesus project stack installation completed" "SUCCESS"
+
+    # Verify all tools
+    Write-Log "Verifying installations..." "INFO"
+    $verification = @()
+
+    try {
+        $nodeVer = node --version
+        $verification += "Node.js: $nodeVer"
+    } catch {
+        $verification += "Node.js: NOT FOUND"
+    }
+
+    try {
+        $pnpmVer = pnpm --version
+        $verification += "pnpm: $pnpmVer"
+    } catch {
+        $verification += "pnpm: NOT FOUND"
+    }
+
+    try {
+        $pythonVer = python --version
+        $verification += "Python: $pythonVer"
+    } catch {
+        $verification += "Python: NOT FOUND"
+    }
+
+    try {
+        $dockerVer = docker --version
+        $verification += "Docker: $dockerVer"
+    } catch {
+        $verification += "Docker: NOT FOUND"
+    }
+
+    Write-Host "`n=== Installation Verification ===" -ForegroundColor Cyan
+    foreach ($item in $verification) {
+        Write-Log $item "INFO"
+    }
+}
+
 # ============================================================================
 # MAIN EXECUTION
 # ============================================================================
@@ -463,6 +703,21 @@ try {
     # Configure firewall
     if (-not $SkipFirewall) {
         Set-FirewallRules
+    }
+
+    # Install development stacks if requested
+    if ($InstallJesusStack) {
+        Install-JesusProjectStack
+    } else {
+        if ($InstallNodeJS) {
+            Install-NodeJSAndPnpm
+        }
+        if ($InstallPython) {
+            Install-PythonStack
+        }
+        if ($InstallDocker) {
+            Install-DockerStack
+        }
     }
 
     # Display success message
