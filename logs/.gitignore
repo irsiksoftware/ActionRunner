@@ -1,0 +1,10 @@
+# Ignore all log files
+*.log
+*.txt
+
+# Ignore archived logs
+archive/*
+
+# Keep the directory structure
+!.gitkeep
+!README.md
