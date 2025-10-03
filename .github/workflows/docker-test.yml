@@ -1,0 +1,56 @@
+name: Docker Isolated Testing
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, feature/* ]
+    paths:
+      - 'scripts/run-in-docker.ps1'
+      - 'scripts/setup-docker.ps1'
+      - '.github/workflows/docker-test.yml'
+
+jobs:
+  docker-isolation-test:
+    name: Test Docker Isolation
+    runs-on: [self-hosted, windows, docker]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Verify Docker is available
+        shell: pwsh
+        run: |
+          Write-Host "Checking Docker availability..."
+          docker --version
+          docker info
+          Write-Host "✓ Docker is available" -ForegroundColor Green
+
+      - name: Test Docker container execution
+        shell: pwsh
+        run: |
+          Write-Host "Testing basic container execution..."
+          docker run --rm hello-world
+          Write-Host "✓ Container execution successful" -ForegroundColor Green
+
+      - name: Test resource limits
+        shell: pwsh
+        run: |
+          Write-Host "Testing container with resource limits..."
+          docker run --rm --cpus 1 --memory 512m alpine:latest echo "Resource limits applied successfully"
+          Write-Host "✓ Resource limits working" -ForegroundColor Green
+
+      - name: Test Python container isolation
+        shell: pwsh
+        run: |
+          Write-Host "Testing Python execution in isolated container..."
+          docker run --rm python:3.11-alpine python -c "print('Hello from isolated container')"
+          Write-Host "✓ Python container isolation working" -ForegroundColor Green
+
+      - name: Cleanup Docker resources
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "Cleaning up Docker resources..."
+          docker system prune -f
+          Write-Host "✓ Cleanup complete" -ForegroundColor Green

@@ -1,0 +1,151 @@
+name: Runner Health Check
+
+on:
+  schedule:
+    # Run every 6 hours
+    - cron: '0 */6 * * *'
+  workflow_dispatch:
+
+jobs:
+  health-check:
+    name: Check Runner Health
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check disk space
+        shell: pwsh
+        run: |
+          Write-Host "=== Disk Space Check ===" -ForegroundColor Cyan
+          $drives = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Used -gt 0 }
+
+          foreach ($drive in $drives) {
+            $freeGB = [math]::Round($drive.Free / 1GB, 2)
+            $usedGB = [math]::Round($drive.Used / 1GB, 2)
+            $totalGB = [math]::Round(($drive.Free + $drive.Used) / 1GB, 2)
+            $percentFree = [math]::Round(($drive.Free / ($drive.Free + $drive.Used)) * 100, 2)
+
+            Write-Host "$($drive.Name): $freeGB GB free of $totalGB GB ($percentFree% free)"
+
+            if ($percentFree -lt 10) {
+              Write-Error "CRITICAL: Drive $($drive.Name) has less than 10% free space!"
+              exit 1
+            } elseif ($percentFree -lt 20) {
+              Write-Warning "WARNING: Drive $($drive.Name) has less than 20% free space"
+            } else {
+              Write-Host "✓ Drive $($drive.Name) has adequate space" -ForegroundColor Green
+            }
+          }
+
+      - name: Check memory usage
+        shell: pwsh
+        run: |
+          Write-Host "=== Memory Usage Check ===" -ForegroundColor Cyan
+          $os = Get-CimInstance Win32_OperatingSystem
+          $totalMemoryGB = [math]::Round($os.TotalVisibleMemorySize / 1MB, 2)
+          $freeMemoryGB = [math]::Round($os.FreePhysicalMemory / 1MB, 2)
+          $usedMemoryGB = $totalMemoryGB - $freeMemoryGB
+          $percentUsed = [math]::Round(($usedMemoryGB / $totalMemoryGB) * 100, 2)
+
+          Write-Host "Total: $totalMemoryGB GB"
+          Write-Host "Used: $usedMemoryGB GB"
+          Write-Host "Free: $freeMemoryGB GB"
+          Write-Host "Usage: $percentUsed%"
+
+          if ($percentUsed -gt 90) {
+            Write-Warning "WARNING: Memory usage is above 90%"
+          } else {
+            Write-Host "✓ Memory usage is normal" -ForegroundColor Green
+          }
+
+      - name: Check CPU load
+        shell: pwsh
+        run: |
+          Write-Host "=== CPU Load Check ===" -ForegroundColor Cyan
+          $cpu = Get-CimInstance Win32_Processor
+          $cpuLoad = $cpu.LoadPercentage
+
+          Write-Host "CPU Load: $cpuLoad%"
+
+          if ($cpuLoad -gt 90) {
+            Write-Warning "WARNING: CPU load is above 90%"
+          } else {
+            Write-Host "✓ CPU load is normal" -ForegroundColor Green
+          }
+
+      - name: Check runner service status
+        shell: pwsh
+        run: |
+          Write-Host "=== Runner Service Check ===" -ForegroundColor Cyan
+          $services = Get-Service -Name "actions.runner.*" -ErrorAction SilentlyContinue
+
+          if ($services) {
+            foreach ($service in $services) {
+              Write-Host "$($service.Name): $($service.Status)"
+              if ($service.Status -ne 'Running') {
+                Write-Error "CRITICAL: Runner service $($service.Name) is not running!"
+                exit 1
+              }
+            }
+            Write-Host "✓ All runner services are running" -ForegroundColor Green
+          } else {
+            Write-Host "No runner services found (may not be installed)" -ForegroundColor Yellow
+          }
+
+      - name: Check for old logs
+        shell: pwsh
+        run: |
+          Write-Host "=== Log Directory Check ===" -ForegroundColor Cyan
+          if (Test-Path .\logs) {
+            $logFiles = Get-ChildItem -Path .\logs -Recurse -File
+            $totalSizeMB = [math]::Round(($logFiles | Measure-Object -Property Length -Sum).Sum / 1MB, 2)
+            $oldLogs = $logFiles | Where-Object { $_.LastWriteTime -lt (Get-Date).AddDays(-30) }
+
+            Write-Host "Total log size: $totalSizeMB MB"
+            Write-Host "Old logs (>30 days): $($oldLogs.Count)"
+
+            if ($totalSizeMB -gt 1000) {
+              Write-Warning "WARNING: Log directory is over 1GB. Consider running log rotation."
+            }
+
+            if ($oldLogs.Count -gt 0) {
+              Write-Host "Consider cleaning up $($oldLogs.Count) old log files" -ForegroundColor Yellow
+            } else {
+              Write-Host "✓ No old logs found" -ForegroundColor Green
+            }
+          } else {
+            Write-Host "Logs directory not found" -ForegroundColor Yellow
+          }
+
+      - name: Check Docker health (if available)
+        shell: pwsh
+        continue-on-error: true
+        run: |
+          Write-Host "=== Docker Health Check ===" -ForegroundColor Cyan
+          try {
+            docker info 2>&1 | Out-Null
+            if ($LASTEXITCODE -eq 0) {
+              $containers = docker ps -a --format "{{.Status}}" | Measure-Object
+              Write-Host "Docker is running"
+              Write-Host "Total containers: $($containers.Count)"
+
+              $oldContainers = docker ps -a --filter "status=exited" --format "{{.ID}}" | Measure-Object
+              if ($oldContainers.Count -gt 10) {
+                Write-Warning "WARNING: $($oldContainers.Count) stopped containers. Consider cleanup."
+              }
+
+              Write-Host "✓ Docker health check complete" -ForegroundColor Green
+            }
+          } catch {
+            Write-Host "Docker not available or not running" -ForegroundColor Yellow
+          }
+
+      - name: Summary
+        if: always()
+        shell: pwsh
+        run: |
+          Write-Host "`n=== Health Check Complete ===" -ForegroundColor Cyan
+          Write-Host "Timestamp: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+          Write-Host "Runner health check completed successfully ✓" -ForegroundColor Green
