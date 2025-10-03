@@ -1,0 +1,154 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  test:
+    name: Run Tests
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Pester tests
+        shell: powershell
+        run: |
+          Write-Host "Installing Pester if not present..."
+          if (-not (Get-Module -ListAvailable -Name Pester)) {
+            Install-Module -Name Pester -Force -SkipPublisherCheck -Scope CurrentUser
+          }
+
+          Write-Host "Running test suite..."
+          $testResults = Invoke-Pester -Path .\tests\ -PassThru -OutputFormat NUnitXml -OutputFile test-results.xml
+
+          if ($testResults.FailedCount -gt 0) {
+            Write-Error "Tests failed: $($testResults.FailedCount) failures"
+            exit 1
+          }
+
+          Write-Host "All tests passed! ✓" -ForegroundColor Green
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results
+          path: test-results.xml
+
+  validate-scripts:
+    name: Validate PowerShell Scripts
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run PSScriptAnalyzer
+        shell: powershell
+        run: |
+          Write-Host "Installing PSScriptAnalyzer if not present..."
+          if (-not (Get-Module -ListAvailable -Name PSScriptAnalyzer)) {
+            Install-Module -Name PSScriptAnalyzer -Force -SkipPublisherCheck -Scope CurrentUser
+          }
+
+          Write-Host "Analyzing PowerShell scripts..."
+          $scripts = Get-ChildItem -Path .\scripts\, .\config\ -Filter *.ps1 -Recurse
+          $errors = @()
+
+          foreach ($script in $scripts) {
+            Write-Host "Analyzing: $($script.Name)"
+            $results = Invoke-ScriptAnalyzer -Path $script.FullName -Severity Error, Warning
+            if ($results) {
+              $errors += $results
+              $results | Format-Table -AutoSize
+            }
+          }
+
+          if ($errors.Count -gt 0) {
+            Write-Error "Found $($errors.Count) issues in PowerShell scripts"
+            exit 1
+          }
+
+          Write-Host "All scripts validated successfully! ✓" -ForegroundColor Green
+
+  security-check:
+    name: Security Validation
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check for sensitive data
+        shell: powershell
+        run: |
+          Write-Host "Scanning for sensitive data patterns..."
+          $patterns = @(
+            'password\s*=',
+            'api[_-]?key\s*=',
+            'secret\s*=',
+            'token\s*=',
+            'BEGIN RSA PRIVATE KEY',
+            'BEGIN PRIVATE KEY'
+          )
+
+          $found = @()
+          $files = Get-ChildItem -Path . -Recurse -File -Exclude @('*.log', '*.xml', '.git')
+
+          foreach ($file in $files) {
+            $content = Get-Content $file.FullName -Raw -ErrorAction SilentlyContinue
+            if ($content) {
+              foreach ($pattern in $patterns) {
+                if ($content -imatch $pattern) {
+                  $found += "$($file.FullName): matched pattern '$pattern'"
+                }
+              }
+            }
+          }
+
+          if ($found.Count -gt 0) {
+            Write-Warning "Potential sensitive data found:"
+            $found | ForEach-Object { Write-Warning $_ }
+            Write-Warning "Review these findings before committing"
+          } else {
+            Write-Host "No sensitive data patterns detected ✓" -ForegroundColor Green
+          }
+
+      - name: Validate firewall rules
+        shell: powershell
+        run: |
+          if (Test-Path .\config\firewall-rules.yaml) {
+            Write-Host "Firewall rules configuration found ✓" -ForegroundColor Green
+          } else {
+            Write-Warning "No firewall rules configuration found"
+          }
+
+  build-status:
+    name: Report Build Status
+    runs-on: [self-hosted, windows]
+    needs: [test, validate-scripts, security-check]
+    if: always()
+
+    steps:
+      - name: Report status
+        shell: powershell
+        run: |
+          Write-Host "=== Build Status ===" -ForegroundColor Cyan
+          Write-Host "Tests: ${{ needs.test.result }}"
+          Write-Host "Script Validation: ${{ needs.validate-scripts.result }}"
+          Write-Host "Security Check: ${{ needs.security-check.result }}"
+
+          if ("${{ needs.test.result }}" -eq "success" -and
+              "${{ needs.validate-scripts.result }}" -eq "success" -and
+              "${{ needs.security-check.result }}" -eq "success") {
+            Write-Host "✓ All checks passed!" -ForegroundColor Green
+          } else {
+            Write-Host "✗ Some checks failed" -ForegroundColor Red
+            exit 1
+          }
