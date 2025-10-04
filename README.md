@@ -23,7 +23,9 @@ See [CAPABILITY-TESTING.md](CAPABILITY-TESTING.md) for detailed capability statu
 
 ### How to Use in Your Workflows
 
-When creating GitHub Actions workflows for Irsik Software repos, use:
+**⚠️ IMPORTANT: Always use Docker containers for isolation and pre-installed dependencies.**
+
+When creating GitHub Actions workflows for Irsik Software repos, use containerized jobs:
 
 ```yaml
 name: Build and Test
@@ -35,23 +37,47 @@ on:
     branches: [ main ]
 
 jobs:
-  build:
-    runs-on: [self-hosted, windows]  # Use our runner
+  # Python projects - use multi-Python container
+  python-tests:
+    runs-on: [self-hosted, windows, docker]
+    container:
+      image: runner-python-multi:latest
 
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build your app
-        shell: powershell  # Use 'powershell', not 'pwsh'
-        run: |
-          # Your build commands here
-          Write-Host "Building..."
+      - name: Run tests with Python 3.12
+        shell: powershell
+        run: python -m pytest tests/
+
+      - name: Run tests with Python 3.10
+        shell: powershell
+        run: C:\Python310\python.exe -m pytest tests/
+
+  # .NET projects - use .NET container
+  dotnet-build:
+    runs-on: [self-hosted, windows, docker]
+    container:
+      image: runner-dotnet:latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build
+        shell: powershell
+        run: dotnet build
+
+      - name: Test
+        shell: powershell
+        run: dotnet test
 ```
 
 **Important Notes:**
-- Use `shell: powershell` (not `pwsh` - PowerShell Core not installed)
-- Use `runs-on: [self-hosted, windows]` for our runners
-- For Docker builds: `runs-on: [self-hosted, windows, docker]`
+- ✅ **DO** use `container:` with pre-built images for isolation
+- ✅ **DO** use `runs-on: [self-hosted, windows, docker]` for our runners
+- ✅ **DO** use `shell: powershell` or `shell: pwsh` (both available in containers)
+- ❌ **DON'T** use `actions/setup-python@v5` - Python is pre-installed in containers
+- ❌ **DON'T** install dependencies on host - use containers
 
 ### Testing Your Workflows
 
@@ -68,18 +94,72 @@ Before pushing workflow changes, you can test our runner capabilities:
 
 ### Current Runner Assignments
 
-| Repository | Runner Name | Labels |
-|------------|-------------|--------|
-| ActionRunner | actionrunner-runner | `self-hosted`, `windows`, `docker` |
-| qiflow | qiflow-runner | `self-hosted`, `windows`, `docker` |
-| qiflowgo | qiflowgo-runner | `self-hosted`, `windows`, `docker` |
-| gifdistributor | gifdistributor-runner | `self-hosted`, `windows`, `docker` |
+| Repository | Runner Name | Platform | Labels |
+|------------|-------------|----------|--------|
+| ActionRunner | actionrunner-runner | Windows | `self-hosted`, `windows`, `docker` |
+| qiflow | qiflow-runner | Windows | `self-hosted`, `windows`, `docker` |
+| qiflowgo | qiflowgo-runner | Windows | `self-hosted`, `windows`, `docker` |
+| gifdistributor | gifdistributor-runner | Windows | `self-hosted`, `windows`, `docker` |
+| *TBD* | linux-runner | Linux | `self-hosted`, `linux`, `docker` |
+
+**Multi-Platform Support:**
+- **Windows runners:** For Windows-specific builds, .NET, Unity
+- **Linux runners:** For cross-platform testing, performance
+- **macOS runners:** (Future) For iOS/macOS builds - requires Mac hardware
 
 ---
 
 ## 🛠️ Setup Instructions (For Infrastructure Admins)
 
-### Initial Runner Setup
+### Quick Start - Dual Runner Setup (Recommended!)
+
+**🎯 Best Setup:** TWO runners on ONE Windows machine with WSL2!
+
+```powershell
+cd C:\Code\ActionRunner
+
+# Step 1: Install Linux runner in WSL2 (5-10 min)
+# Get runner token from: https://github.com/YOUR-ORG/YOUR-REPO/settings/actions/runners
+.\scripts\setup-wsl2-runner.ps1 `
+  -RepoUrl "https://github.com/DakotaIrsik/QiFlow" `
+  -Token "YOUR_RUNNER_TOKEN" `
+  -RunnerName "qiflow-linux-runner"
+
+# Step 2: Build Windows Python container (10-15 min)
+.\scripts\build-python-image.ps1
+
+# Step 3: Check both runners
+.\scripts\manage-runners.ps1 -Action status
+```
+
+**You'll have:**
+- ✅ Windows runner (already installed) → For .NET, Unity, Windows builds
+- ✅ Linux runner (in WSL2) → For Python, Node, faster builds with `container:` keyword
+
+📖 **Full guide:** [WSL2-DUAL-RUNNER-SETUP.md](WSL2-DUAL-RUNNER-SETUP.md) ← **Start here!**
+📋 **Quick commands:** [QUICK-REFERENCE.md](QUICK-REFERENCE.md) ← **Bookmark this!**
+
+**Separate Linux Server** (Optional - if you want dedicated Linux machine)
+```bash
+# One-command setup on Ubuntu server
+git clone https://github.com/DakotaIrsik/ActionRunner.git
+cd ActionRunner
+sudo ./scripts/setup-linux-runner.sh \
+  --repo-url https://github.com/DakotaIrsik/YOUR-REPO \
+  --token YOUR_TOKEN
+```
+📖 **Full guide:** [LINUX-SETUP.md](LINUX-SETUP.md)
+
+**macOS Runner** (Future - for iOS builds)
+- Requires actual Mac hardware (cannot use VMs)
+- Contact for setup assistance
+
+---
+
+### Legacy Windows Setup (Manual)
+
+<details>
+<summary>Click to expand manual Windows setup steps</summary>
 
 1. **Download GitHub Actions Runner**
 
@@ -124,15 +204,23 @@ Get-Service actions.runner.* | Select-Object Name, Status, StartType
 .\scripts\run-tests-by-capability.ps1 -Capability All
 ```
 
+</details>
+
+---
+
 ### Adding Build Capabilities
 
-We're actively expanding build support. Current priorities:
+**✅ Completed:**
+- ✅ Python Docker image with Flask/Django (Windows + Linux)
+- ✅ Multi-Python versions (3.9, 3.10, 3.11, 3.12)
+- ✅ PowerShell Core support
 
-**Priority 1 - Web Apps (Quick Wins)**
-- Create Python Docker image with Flask/Django
-- Create .NET Docker image with ASP.NET Core
-- Create Node.js Docker image with pnpm
-- Add framework verification tests
+**In Progress:**
+- 🔄 Linux runner deployment
+- 🔄 .NET Docker image with ASP.NET Core
+- 🔄 Node.js Docker image with pnpm
+
+**Planned:**
 
 **Priority 2 - Infrastructure**
 - Complete Docker/WSL2 setup

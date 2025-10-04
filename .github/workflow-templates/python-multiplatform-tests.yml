@@ -1,0 +1,164 @@
+name: Multi-Platform Python Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # Test on multiple platforms (Windows + Linux) with multiple Python versions
+  test:
+    name: Test on ${{ matrix.os-name }} with Python ${{ matrix.python-version }}
+    runs-on: ${{ matrix.os }}
+
+    # Use pre-built multi-Python containers (NO setup-python needed!)
+    container:
+      image: runner-python-multi:latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - runs-on: [self-hosted, windows, docker]
+            os-name: Windows
+            python-prefix: 'C:\Python'
+            shell: powershell
+          - runs-on: [self-hosted, linux, docker]
+            os-name: Linux
+            python-prefix: '/usr/bin/python'
+            shell: bash
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    # Dynamic shell based on OS
+    defaults:
+      run:
+        shell: ${{ matrix.os.shell }}
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Show Python version (Windows)
+        if: matrix.os-name == 'Windows'
+        run: |
+          $pythonExe = "${{ matrix.os.python-prefix }}${{ matrix.python-version }}\python.exe"
+          Write-Host "Using Python from: $pythonExe"
+          & $pythonExe --version
+
+      - name: Show Python version (Linux)
+        if: matrix.os-name == 'Linux'
+        run: |
+          pythonExe="${{ matrix.os.python-prefix }}${{ matrix.python-version }}"
+          echo "Using Python from: $pythonExe"
+          $pythonExe --version
+
+      - name: Install dependencies (Windows)
+        if: matrix.os-name == 'Windows'
+        run: |
+          $pythonExe = "${{ matrix.os.python-prefix }}${{ matrix.python-version }}\python.exe"
+
+          # Install from requirements.txt if it exists
+          if (Test-Path requirements.txt) {
+            Write-Host "Installing from requirements.txt..."
+            & $pythonExe -m pip install -r requirements.txt
+          }
+
+          # Install test dependencies
+          & $pythonExe -m pip install pytest pytest-cov pytest-asyncio
+
+      - name: Install dependencies (Linux)
+        if: matrix.os-name == 'Linux'
+        run: |
+          pythonExe="${{ matrix.os.python-prefix }}${{ matrix.python-version }}"
+
+          # Install from requirements.txt if it exists
+          if [ -f requirements.txt ]; then
+            echo "Installing from requirements.txt..."
+            $pythonExe -m pip install -r requirements.txt
+          fi
+
+          # Install test dependencies
+          $pythonExe -m pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run tests (Windows)
+        if: matrix.os-name == 'Windows'
+        run: |
+          $pythonExe = "${{ matrix.os.python-prefix }}${{ matrix.python-version }}\python.exe"
+          & $pythonExe -m pytest tests/ -v --tb=short
+
+      - name: Run tests (Linux)
+        if: matrix.os-name == 'Linux'
+        run: |
+          pythonExe="${{ matrix.os.python-prefix }}${{ matrix.python-version }}"
+          $pythonExe -m pytest tests/ -v --tb=short
+
+      - name: Generate coverage report (Python 3.12 + Linux only)
+        if: matrix.python-version == '3.12' && matrix.os-name == 'Linux'
+        run: |
+          python3.12 -m pip install coverage
+          python3.12 -m pytest --cov=. --cov-report=xml --cov-report=html
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.12' && matrix.os-name == 'Linux'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 30
+
+  # Linting job (runs once on Linux with latest Python)
+  lint:
+    name: Lint and Format Check
+    runs-on: [self-hosted, linux, docker]
+    container:
+      image: runner-python-multi:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run flake8
+        shell: bash
+        run: |
+          python3.12 -m pip install flake8
+          python3.12 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          python3.12 -m flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Check formatting with black
+        shell: bash
+        run: |
+          python3.12 -m pip install black
+          python3.12 -m black --check .
+
+      - name: Type check with mypy
+        shell: bash
+        continue-on-error: true
+        run: |
+          python3.12 -m pip install mypy
+          python3.12 -m mypy .
+
+  # Status check - require all tests to pass
+  all-tests-passed:
+    name: All Tests Passed
+    runs-on: [self-hosted, linux, docker]
+    needs: [test, lint]
+    if: always()
+
+    steps:
+      - name: Check test results
+        shell: bash
+        run: |
+          testStatus='${{ needs.test.result }}'
+          lintStatus='${{ needs.lint.result }}'
+
+          if [[ "$testStatus" == "success" && "$lintStatus" == "success" ]]; then
+            echo "✓ All tests passed!"
+            exit 0
+          else
+            echo "✗ Some tests failed"
+            echo "  Tests: $testStatus"
+            echo "  Lint: $lintStatus"
+            exit 1
+          fi

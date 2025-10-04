@@ -1,0 +1,124 @@
+name: Python Tests (Containerized)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # Multi-version Python testing in containers
+  test:
+    name: Test on Python ${{ matrix.python-version }}
+    runs-on: [self-hosted, windows, docker]
+
+    # Use pre-built multi-Python container (NO setup-python needed!)
+    container:
+      image: runner-python-multi:latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Show Python version
+        shell: powershell
+        run: |
+          $pythonExe = "C:\Python${{ matrix.python-version }}\python.exe"
+          Write-Host "Using Python from: $pythonExe"
+          & $pythonExe --version
+
+      - name: Install dependencies
+        shell: powershell
+        run: |
+          $pythonExe = "C:\Python${{ matrix.python-version }}\python.exe"
+
+          # Install from requirements.txt if it exists
+          if (Test-Path requirements.txt) {
+            Write-Host "Installing from requirements.txt..."
+            & $pythonExe -m pip install -r requirements.txt
+          }
+
+          # Install test dependencies
+          & $pythonExe -m pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run tests
+        shell: powershell
+        run: |
+          $pythonExe = "C:\Python${{ matrix.python-version }}\python.exe"
+          & $pythonExe -m pytest tests/ -v --tb=short
+
+      - name: Generate coverage report (Python 3.12 only)
+        if: matrix.python-version == '3.12'
+        shell: powershell
+        run: |
+          C:\Python312\python.exe -m pip install coverage
+          C:\Python312\python.exe -m pytest --cov=. --cov-report=xml --cov-report=html
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: htmlcov/
+          retention-days: 30
+
+  # Linting job (runs once, not per Python version)
+  lint:
+    name: Lint and Format Check
+    runs-on: [self-hosted, windows, docker]
+    container:
+      image: runner-python-multi:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run flake8
+        shell: pwsh  # PowerShell Core is available!
+        run: |
+          python -m pip install flake8
+          python -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          python -m flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Check formatting with black
+        shell: pwsh  # PowerShell Core is available!
+        run: |
+          python -m pip install black
+          python -m black --check .
+
+      - name: Type check with mypy
+        shell: pwsh  # PowerShell Core is available!
+        continue-on-error: true
+        run: |
+          python -m pip install mypy
+          python -m mypy .
+
+  # Status check - require all tests to pass
+  all-tests-passed:
+    name: All Tests Passed
+    runs-on: [self-hosted, windows, docker]
+    needs: [test, lint]
+    if: always()
+
+    steps:
+      - name: Check test results
+        shell: powershell
+        run: |
+          $testStatus = '${{ needs.test.result }}'
+          $lintStatus = '${{ needs.lint.result }}'
+
+          if ($testStatus -eq 'success' -and $lintStatus -eq 'success') {
+            Write-Host "✓ All tests passed!" -ForegroundColor Green
+            exit 0
+          } else {
+            Write-Host "✗ Some tests failed" -ForegroundColor Red
+            Write-Host "  Tests: $testStatus"
+            Write-Host "  Lint: $lintStatus"
+            exit 1
+          }

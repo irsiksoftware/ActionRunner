@@ -1,0 +1,15 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(gh auth:*)",
+      "Bash(gh api:*)",
+      "Bash(powershell.exe:*)",
+      "Bash(pwsh:*)",
+      "Bash(cmd.exe /c \"powershell.exe -ExecutionPolicy Bypass -Command \"\"& ''C:\\Code\\ActionRunner\\scripts\\setup-wsl2-runner.ps1'' -RepoUrl ''https://github.com/irsiksoftware'' -Token ''AGIKMUWEPQN3LXGW6MH7C4DI4C7JE'' -RunnerName ''irsiksoftware-linux-runner''\"\"\")",
+      "Bash(wsl:*)",
+      "Bash(docker run:*)"
+    ],
+    "deny": [],
+    "ask": []
+  }
+}

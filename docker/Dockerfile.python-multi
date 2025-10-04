@@ -1,0 +1,111 @@
+# Multi-Python Test Environment
+# Windows Server Core with Python 3.9, 3.10, 3.11, and 3.12
+# Built for reusable containerized GitHub Actions workflows
+
+FROM mcr.microsoft.com/windows/servercore:ltsc2022
+
+SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+# Install Chocolatey
+RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
+    iex ((New-Object System.Net.WebClient).DownloadString('https://community.chocolatey.org/install.ps1'))
+
+# Install Git (required for checkout action)
+RUN choco install -y git
+
+# Install PowerShell Core (pwsh)
+RUN choco install -y powershell-core
+ENV PWSH_PATH="C:\Program Files\PowerShell\7"
+
+# Add pwsh to PATH
+ENV PATH="C:\Program Files\PowerShell\7;${PATH}"
+
+# Install Python 3.9
+RUN choco install -y python --version=3.9.13 --params "'/InstallDir:C:\Python39'"
+ENV PYTHON39_PATH=C:\Python39
+
+# Install Python 3.10
+RUN choco install -y python310 --params "'/InstallDir:C:\Python310'"
+ENV PYTHON310_PATH=C:\Python310
+
+# Install Python 3.11
+RUN choco install -y python311 --params "'/InstallDir:C:\Python311'"
+ENV PYTHON311_PATH=C:\Python311
+
+# Install Python 3.12
+RUN choco install -y python312 --params "'/InstallDir:C:\Python312'"
+ENV PYTHON312_PATH=C:\Python312
+
+# Add all Python versions to PATH (latest first, 3.12 is default)
+ENV PATH="C:\Python312;C:\Python312\Scripts;C:\Python311;C:\Python311\Scripts;C:\Python310;C:\Python310\Scripts;C:\Python39;C:\Python39\Scripts;${PATH}"
+
+# Upgrade pip for all Python versions and install common test tools
+RUN C:\Python39\python.exe -m pip install --upgrade pip setuptools wheel; \
+    C:\Python39\python.exe -m pip install pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+RUN C:\Python310\python.exe -m pip install --upgrade pip setuptools wheel; \
+    C:\Python310\python.exe -m pip install pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+RUN C:\Python311\python.exe -m pip install --upgrade pip setuptools wheel; \
+    C:\Python311\python.exe -m pip install pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+RUN C:\Python312\python.exe -m pip install --upgrade pip setuptools wheel; \
+    C:\Python312\python.exe -m pip install pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+# Create py launcher script for easy version switching
+RUN New-Item -ItemType Directory -Path C:\Scripts -Force
+RUN @' \
+# Python version launcher \n\
+param([string]$Version = \"3.12\", [Parameter(ValueFromRemainingArguments=$true)]$Args) \n\
+$pythonPath = switch ($Version) { \n\
+    \"3.9\" { \"C:\\Python39\\python.exe\" } \n\
+    \"3.10\" { \"C:\\Python310\\python.exe\" } \n\
+    \"3.11\" { \"C:\\Python311\\python.exe\" } \n\
+    \"3.12\" { \"C:\\Python312\\python.exe\" } \n\
+    default { \"C:\\Python312\\python.exe\" } \n\
+} \n\
+& $pythonPath @Args \n\
+'@ | Out-File -FilePath C:\Scripts\py.ps1 -Encoding ASCII
+
+# Create verification script
+RUN @' \
+Write-Host \"=== Python Multi-Version Container ===\" -ForegroundColor Cyan \n\
+Write-Host \"\" \n\
+Write-Host \"PowerShell:\" -ForegroundColor Green \n\
+Write-Host \"  Windows PowerShell: \" -NoNewline \n\
+& powershell -Command \"Write-Host `$PSVersionTable.PSVersion.ToString()\" \n\
+Write-Host \"  PowerShell Core: \" -NoNewline \n\
+& pwsh -Command \"Write-Host `$PSVersionTable.PSVersion.ToString()\" \n\
+Write-Host \"\" \n\
+Write-Host \"Available Python versions:\" -ForegroundColor Green \n\
+& C:\\Python39\\python.exe --version \n\
+& C:\\Python310\\python.exe --version \n\
+& C:\\Python311\\python.exe --version \n\
+& C:\\Python312\\python.exe --version \n\
+Write-Host \"\" \n\
+Write-Host \"Default Python: \" -NoNewline \n\
+& python --version \n\
+Write-Host \"\" \n\
+Write-Host \"To use specific version in workflow:\" -ForegroundColor Yellow \n\
+Write-Host \"  C:\\Python39\\python.exe your_script.py\" \n\
+Write-Host \"  C:\\Python310\\python.exe your_script.py\" \n\
+Write-Host \"  C:\\Python311\\python.exe your_script.py\" \n\
+Write-Host \"  C:\\Python312\\python.exe your_script.py\" \n\
+Write-Host \"\" \n\
+Write-Host \"Shell options:\" -ForegroundColor Yellow \n\
+Write-Host \"  shell: powershell  (Windows PowerShell 5.1)\" \n\
+Write-Host \"  shell: pwsh        (PowerShell Core 7+)\" \n\
+'@ | Out-File -FilePath C:\Scripts\show-python-versions.ps1 -Encoding ASCII
+
+# Create working directory
+RUN New-Item -ItemType Directory -Path C:\workspace -Force
+WORKDIR C:\workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD powershell -Command "python --version"
+
+# Show versions on container start
+ENTRYPOINT ["powershell.exe", "-File", "C:\\Scripts\\show-python-versions.ps1"]
+CMD ["powershell.exe"]

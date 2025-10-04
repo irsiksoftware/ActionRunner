@@ -1,0 +1,198 @@
+name: Python Tests (Unified Dual-Runner)
+
+# This workflow uses BOTH runners:
+# - Linux runner (WSL2) with container: keyword - faster, smaller
+# - Windows runner with docker run commands - for Windows-specific needs
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  # ==============================================================================
+  # LINUX RUNNER JOBS (Primary - faster, uses container: keyword)
+  # ==============================================================================
+
+  test-linux:
+    name: 🐧 Linux - Python ${{ matrix.python-version }}
+    runs-on: [self-hosted, linux, docker, wsl2]
+
+    # Linux runner supports container: keyword natively!
+    container:
+      image: runner-python-multi:latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.9', '3.10', '3.11', '3.12']
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Show Python version
+        run: |
+          echo "Testing with Python ${{ matrix.python-version }}"
+          python${{ matrix.python-version }} --version
+
+      - name: Install dependencies
+        run: |
+          # Install from requirements.txt if it exists
+          if [ -f requirements.txt ]; then
+            echo "Installing from requirements.txt..."
+            python${{ matrix.python-version }} -m pip install -r requirements.txt
+          fi
+
+          # Install test dependencies
+          python${{ matrix.python-version }} -m pip install pytest pytest-cov pytest-asyncio
+
+      - name: Run tests
+        run: python${{ matrix.python-version }} -m pytest tests/ -v --tb=short
+
+      - name: Generate coverage (Python 3.12 only)
+        if: matrix.python-version == '3.12'
+        run: |
+          python3.12 -m pip install coverage
+          python3.12 -m pytest --cov=. --cov-report=xml --cov-report=html
+
+      - name: Upload coverage
+        if: matrix.python-version == '3.12'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report-linux
+          path: htmlcov/
+          retention-days: 30
+
+  lint-linux:
+    name: 🐧 Linux - Lint & Format
+    runs-on: [self-hosted, linux, docker, wsl2]
+    container:
+      image: runner-python-multi:latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run flake8
+        run: |
+          python3.12 -m pip install flake8
+          python3.12 -m flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          python3.12 -m flake8 . --count --max-complexity=10 --max-line-length=127 --statistics
+
+      - name: Check formatting with black
+        run: |
+          python3.12 -m pip install black
+          python3.12 -m black --check .
+
+      - name: Type check with mypy
+        continue-on-error: true
+        run: |
+          python3.12 -m pip install mypy
+          python3.12 -m mypy .
+
+  # ==============================================================================
+  # WINDOWS RUNNER JOBS (Secondary - for Windows-specific validation)
+  # ==============================================================================
+
+  test-windows:
+    name: 🪟 Windows - Python ${{ matrix.python-version }}
+    runs-on: [self-hosted, windows, docker]
+
+    # Windows runner: NO container: keyword (not supported)
+    # We use docker run commands instead
+
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.10', '3.12']  # Test fewer versions on Windows
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run tests in Windows container
+        shell: powershell
+        run: |
+          $pythonVersion = "${{ matrix.python-version }}"
+          $pythonExe = "C:\Python$($pythonVersion.Replace('.', ''))\python.exe"
+
+          Write-Host "Testing with Python $pythonVersion on Windows"
+
+          # Run in container using docker run
+          docker run --rm `
+            -v "${PWD}:C:\workspace" `
+            -w C:\workspace `
+            runner-python-multi:latest `
+            powershell -Command @"
+              Write-Host 'Inside Windows container'
+              & $pythonExe --version
+
+              # Install dependencies
+              if (Test-Path requirements.txt) {
+                Write-Host 'Installing from requirements.txt...'
+                & $pythonExe -m pip install -r requirements.txt
+              }
+
+              # Install test dependencies
+              & $pythonExe -m pip install pytest pytest-cov pytest-asyncio
+
+              # Run tests
+              & $pythonExe -m pytest tests/ -v --tb=short
+"@
+
+  # ==============================================================================
+  # STATUS CHECK (Require all tests to pass)
+  # ==============================================================================
+
+  all-tests-passed:
+    name: ✅ All Tests Passed
+    runs-on: [self-hosted, linux, docker, wsl2]
+    needs: [test-linux, lint-linux, test-windows]
+    if: always()
+
+    steps:
+      - name: Check results
+        run: |
+          linuxTests='${{ needs.test-linux.result }}'
+          linuxLint='${{ needs.lint-linux.result }}'
+          windowsTests='${{ needs.test-windows.result }}'
+
+          echo "=== Test Results ==="
+          echo "Linux Tests:   $linuxTests"
+          echo "Linux Lint:    $linuxLint"
+          echo "Windows Tests: $windowsTests"
+          echo ""
+
+          if [[ "$linuxTests" == "success" && "$linuxLint" == "success" && "$windowsTests" == "success" ]]; then
+            echo "✅ All tests passed on both platforms!"
+            exit 0
+          else
+            echo "❌ Some tests failed"
+            exit 1
+          fi
+
+# ==============================================================================
+# USAGE NOTES
+# ==============================================================================
+#
+# This workflow demonstrates the unified dual-runner architecture:
+#
+# Linux Runner (WSL2):
+#   - Uses: container: keyword (native support)
+#   - Advantages: Faster, smaller containers, cleaner syntax
+#   - Primary platform for most tests
+#
+# Windows Runner:
+#   - Uses: docker run commands (container: not supported)
+#   - Advantages: Can test Windows-specific behavior
+#   - Secondary platform for validation
+#
+# To customize:
+# 1. Add/remove Python versions in matrix.python-version
+# 2. Add more Windows tests if needed (currently runs fewer for speed)
+# 3. Adjust test commands for your project structure
+# 4. Add deployment jobs if needed
+#

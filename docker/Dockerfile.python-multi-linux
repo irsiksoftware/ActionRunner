@@ -1,0 +1,105 @@
+# Multi-Python Test Environment for Linux
+# Ubuntu with Python 3.9, 3.10, 3.11, and 3.12
+# Built for reusable containerized GitHub Actions workflows
+
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during installation
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install common dependencies
+RUN apt-get update && apt-get install -y \
+    software-properties-common \
+    git \
+    curl \
+    wget \
+    build-essential \
+    ca-certificates \
+    gnupg \
+    lsb-release \
+    && rm -rf /var/lib/apt/lists/*
+
+# Add deadsnakes PPA for multiple Python versions
+RUN add-apt-repository ppa:deadsnakes/ppa -y
+
+# Install all Python versions
+RUN apt-get update && apt-get install -y \
+    python3.9 \
+    python3.9-dev \
+    python3.9-distutils \
+    python3.9-venv \
+    python3.10 \
+    python3.10-dev \
+    python3.10-distutils \
+    python3.10-venv \
+    python3.11 \
+    python3.11-dev \
+    python3.11-venv \
+    python3.12 \
+    python3.12-dev \
+    python3.12-venv \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install pip for all Python versions
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py -o get-pip.py && \
+    python3.9 get-pip.py && \
+    python3.10 get-pip.py && \
+    python3.11 get-pip.py && \
+    python3.12 get-pip.py && \
+    rm get-pip.py
+
+# Upgrade pip and install common test tools for all versions
+RUN python3.9 -m pip install --upgrade pip setuptools wheel && \
+    python3.9 -m pip install --ignore-installed blinker pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+RUN python3.10 -m pip install --upgrade pip setuptools wheel && \
+    python3.10 -m pip install --ignore-installed blinker pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+RUN python3.11 -m pip install --upgrade pip setuptools wheel && \
+    python3.11 -m pip install --ignore-installed blinker pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+RUN python3.12 -m pip install --upgrade pip setuptools wheel && \
+    python3.12 -m pip install --ignore-installed blinker pytest pytest-cov pytest-xdist pytest-asyncio black flake8 mypy requests flask django
+
+# Create symlinks for easier access
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.12 1 && \
+    update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.12 1
+
+# Set Python 3.12 as default
+ENV PYTHON_VERSION=3.12
+ENV PATH="/usr/local/bin:${PATH}"
+
+# Create verification script
+RUN echo '#!/bin/bash\n\
+echo "=== Python Multi-Version Container (Linux) ==="\n\
+echo ""\n\
+echo "Available Python versions:"\n\
+python3.9 --version\n\
+python3.10 --version\n\
+python3.11 --version\n\
+python3.12 --version\n\
+echo ""\n\
+echo "Default Python:"\n\
+python --version\n\
+python3 --version\n\
+echo ""\n\
+echo "To use specific version in workflow:"\n\
+echo "  python3.9 your_script.py"\n\
+echo "  python3.10 your_script.py"\n\
+echo "  python3.11 your_script.py"\n\
+echo "  python3.12 your_script.py"\n\
+echo ""\n\
+echo "Shell: bash (default)"\n\
+' > /usr/local/bin/show-python-versions && \
+    chmod +x /usr/local/bin/show-python-versions
+
+# Create working directory
+WORKDIR /workspace
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD python --version || exit 1
+
+# Show versions on container start
+ENTRYPOINT ["/usr/local/bin/show-python-versions"]
+CMD ["/bin/bash"]
