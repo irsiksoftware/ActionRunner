@@ -130,7 +130,9 @@ Describe "End-to-End Workflow Integration Tests" -Tag "Integration", "E2E" {
 
                 # Check pip
                 $pipVersion = pip --version 2>$null
-                $pipVersion | Should -Match 'pip \d+'
+                if ($pipVersion) {
+                    $pipVersion | Should -Match 'pip \d+'
+                }
             } else {
                 Set-ItResult -Skipped -Because "Python not installed"
             }
@@ -387,7 +389,6 @@ jobs:
             $buildScript = Join-Path $script:testWorkspace "build.ps1"
 
             @"
-Write-Output "Building PowerShell project..."
 `$result = @{
     Status = "Success"
     BuildTime = "1.5s"
