@@ -399,8 +399,154 @@ function Measure-GitPerformance {
     }
 }
 
+function Get-BaselineComparison {
+    Write-BenchmarkLog "Loading baseline data for comparison..."
+
+    $baselinePath = Join-Path (Split-Path $PSScriptRoot -Parent) "data" "benchmark-baseline.json"
+
+    if (-not (Test-Path $baselinePath)) {
+        Write-BenchmarkLog "Baseline file not found: $baselinePath" "WARN"
+        return $null
+    }
+
+    try {
+        $baseline = Get-Content $baselinePath -Raw | ConvertFrom-Json
+        Write-BenchmarkLog "Baseline data loaded successfully" "SUCCESS"
+        return $baseline
+    } catch {
+        Write-BenchmarkLog "Failed to load baseline data: $_" "ERROR"
+        return $null
+    }
+}
+
+function Compare-WithBaseline {
+    param($Baseline)
+
+    if (-not $Baseline) {
+        return @()
+    }
+
+    $comparisons = @()
+
+    # Compare DiskIO
+    if ($script:BenchmarkResults.Benchmarks.DiskIO -and -not $script:BenchmarkResults.Benchmarks.DiskIO.Status) {
+        $diskIO = $script:BenchmarkResults.Benchmarks.DiskIO
+        $baselineDiskIO = $Baseline.baselines.DiskIO
+
+        if ($diskIO.AvgWriteSpeedMBps -lt $baselineDiskIO.MinWriteSpeedMBps) {
+            $comparisons += @{
+                Category = "DiskIO"
+                Metric = "Write Speed"
+                Value = $diskIO.AvgWriteSpeedMBps
+                Baseline = $baselineDiskIO.MinWriteSpeedMBps
+                Status = "Below Baseline"
+            }
+        }
+
+        if ($diskIO.AvgReadSpeedMBps -lt $baselineDiskIO.MinReadSpeedMBps) {
+            $comparisons += @{
+                Category = "DiskIO"
+                Metric = "Read Speed"
+                Value = $diskIO.AvgReadSpeedMBps
+                Baseline = $baselineDiskIO.MinReadSpeedMBps
+                Status = "Below Baseline"
+            }
+        }
+
+        if ($diskIO.AvgSmallFileOpsPerSec -lt $baselineDiskIO.MinSmallFileOpsPerSec) {
+            $comparisons += @{
+                Category = "DiskIO"
+                Metric = "Small File Ops"
+                Value = $diskIO.AvgSmallFileOpsPerSec
+                Baseline = $baselineDiskIO.MinSmallFileOpsPerSec
+                Status = "Below Baseline"
+            }
+        }
+    }
+
+    # Compare Network
+    if ($script:BenchmarkResults.Benchmarks.Network -and -not $script:BenchmarkResults.Benchmarks.Network.Status) {
+        $network = $script:BenchmarkResults.Benchmarks.Network
+        $baselineNetwork = $Baseline.baselines.Network
+
+        if ($network.AvgGitHubLatencyMs -gt $baselineNetwork.MaxGitHubLatencyMs) {
+            $comparisons += @{
+                Category = "Network"
+                Metric = "GitHub Latency"
+                Value = $network.AvgGitHubLatencyMs
+                Baseline = $baselineNetwork.MaxGitHubLatencyMs
+                Status = "Above Baseline"
+            }
+        }
+
+        if ($network.AvgDownloadSpeedMBps -lt $baselineNetwork.MinDownloadSpeedMBps -and $network.AvgDownloadSpeedMBps -gt 0) {
+            $comparisons += @{
+                Category = "Network"
+                Metric = "Download Speed"
+                Value = $network.AvgDownloadSpeedMBps
+                Baseline = $baselineNetwork.MinDownloadSpeedMBps
+                Status = "Below Baseline"
+            }
+        }
+    }
+
+    # Compare DotNet
+    if ($script:BenchmarkResults.Benchmarks.DotNet -and -not $script:BenchmarkResults.Benchmarks.DotNet.Status) {
+        $dotnet = $script:BenchmarkResults.Benchmarks.DotNet
+        $baselineDotNet = $Baseline.baselines.DotNet
+
+        if ($dotnet.AvgBuildTimeSeconds -gt $baselineDotNet.MaxBuildTimeSeconds) {
+            $comparisons += @{
+                Category = "DotNet"
+                Metric = "Build Time"
+                Value = $dotnet.AvgBuildTimeSeconds
+                Baseline = $baselineDotNet.MaxBuildTimeSeconds
+                Status = "Above Baseline"
+            }
+        }
+    }
+
+    # Compare Python
+    if ($script:BenchmarkResults.Benchmarks.Python -and -not $script:BenchmarkResults.Benchmarks.Python.Status) {
+        $python = $script:BenchmarkResults.Benchmarks.Python
+        $baselinePython = $Baseline.baselines.Python
+
+        if ($python.AvgStartupTimeMs -gt $baselinePython.MaxStartupTimeMs) {
+            $comparisons += @{
+                Category = "Python"
+                Metric = "Startup Time"
+                Value = $python.AvgStartupTimeMs
+                Baseline = $baselinePython.MaxStartupTimeMs
+                Status = "Above Baseline"
+            }
+        }
+    }
+
+    # Compare Git
+    if ($script:BenchmarkResults.Benchmarks.Git -and -not $script:BenchmarkResults.Benchmarks.Git.Status) {
+        $git = $script:BenchmarkResults.Benchmarks.Git
+        $baselineGit = $Baseline.baselines.Git
+
+        if ($git.AvgCloneTimeSeconds -gt $baselineGit.MaxCloneTimeSeconds) {
+            $comparisons += @{
+                Category = "Git"
+                Metric = "Clone Time"
+                Value = $git.AvgCloneTimeSeconds
+                Baseline = $baselineGit.MaxCloneTimeSeconds
+                Status = "Above Baseline"
+            }
+        }
+    }
+
+    return $comparisons
+}
+
 function Export-BenchmarkReport {
     Write-BenchmarkLog "Generating benchmark reports..."
+
+    # Load and compare with baseline
+    $baseline = Get-BaselineComparison
+    $baselineComparisons = Compare-WithBaseline -Baseline $baseline
 
     # Export JSON
     $script:BenchmarkResults | ConvertTo-Json -Depth 10 | Out-File -FilePath $JsonReportFile -Encoding UTF8
@@ -470,6 +616,28 @@ Based on typical CI/CD workload requirements:
         $markdown += "- **Network:** $netRating`n"
     }
 
+    # Add baseline comparison section
+    if ($baselineComparisons.Count -gt 0) {
+        $markdown += @"
+
+## Baseline Comparison
+
+The following metrics are outside acceptable baseline thresholds:
+
+"@
+        foreach ($comp in $baselineComparisons) {
+            $markdown += "- **$($comp.Category) - $($comp.Metric):** $($comp.Value) (Baseline: $($comp.Baseline), Status: $($comp.Status))`n"
+        }
+    } else {
+        $markdown += @"
+
+## Baseline Comparison
+
+✓ All metrics meet or exceed baseline thresholds.
+
+"@
+    }
+
     $markdown += @"
 
 ## Recommendations
@@ -489,6 +657,11 @@ Based on typical CI/CD workload requirements:
 
     if ($script:BenchmarkResults.SystemInfo.AvailableMemoryGB -lt 4) {
         $recommendations += "- Available memory is low; consider closing applications or adding RAM"
+    }
+
+    # Add baseline-specific recommendations
+    foreach ($comp in $baselineComparisons) {
+        $recommendations += "- $($comp.Category): $($comp.Metric) is $($comp.Status.ToLower()) (current: $($comp.Value), baseline: $($comp.Baseline))"
     }
 
     if ($recommendations.Count -eq 0) {

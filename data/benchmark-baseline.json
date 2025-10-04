@@ -1,0 +1,62 @@
+{
+  "version": "1.0",
+  "description": "Baseline performance metrics for runner benchmarks. These values represent expected minimum performance thresholds.",
+  "created": "2025-10-04",
+  "baselines": {
+    "DiskIO": {
+      "MinWriteSpeedMBps": 100,
+      "MinReadSpeedMBps": 150,
+      "MinSmallFileOpsPerSec": 500,
+      "description": "Disk I/O baseline - minimum acceptable speeds for CI/CD workloads"
+    },
+    "Network": {
+      "MaxGitHubLatencyMs": 500,
+      "MinDownloadSpeedMBps": 1,
+      "description": "Network baseline - maximum acceptable latency and minimum download speed"
+    },
+    "DotNet": {
+      "MaxBuildTimeSeconds": 30,
+      "description": ".NET baseline - maximum acceptable build time for simple console app"
+    },
+    "Python": {
+      "MaxStartupTimeMs": 500,
+      "MaxSimpleScriptTimeMs": 2000,
+      "description": "Python baseline - maximum acceptable startup and execution times"
+    },
+    "Git": {
+      "MaxCloneTimeSeconds": 10,
+      "MaxStatusTimeMs": 100,
+      "description": "Git baseline - maximum acceptable times for common operations"
+    }
+  },
+  "performanceGrades": {
+    "DiskIO": {
+      "WriteSpeed": {
+        "Excellent": 500,
+        "Good": 200,
+        "Adequate": 100,
+        "Poor": 0
+      },
+      "ReadSpeed": {
+        "Excellent": 600,
+        "Good": 300,
+        "Adequate": 150,
+        "Poor": 0
+      }
+    },
+    "Network": {
+      "Latency": {
+        "Excellent": 50,
+        "Good": 150,
+        "Adequate": 300,
+        "Poor": 500
+      }
+    }
+  },
+  "notes": [
+    "Baselines are intentionally conservative to ensure broad compatibility",
+    "Performance ratings help identify optimization opportunities",
+    "Update baselines periodically based on infrastructure improvements",
+    "Failed tests (-1 values) should be investigated separately"
+  ]
+}
