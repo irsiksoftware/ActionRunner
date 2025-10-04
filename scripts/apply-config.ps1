@@ -96,7 +96,7 @@ if (-not (Get-Module -ListAvailable -Name powershell-yaml)) {
         Install-Module -Name powershell-yaml -Force -Scope CurrentUser -ErrorAction Stop
     } catch {
         Write-Error "Failed to install powershell-yaml module. Please install manually: Install-Module -Name powershell-yaml"
-        exit 1
+        throw "Failed to install powershell-yaml module"
     }
 }
 
@@ -421,17 +421,17 @@ try {
                     Write-ConfigLog "Using latest backup: $BackupFile" "INFO"
                 } else {
                     Write-ConfigLog "No backup files found in $backupDir" "ERROR"
-                    exit 1
+                    throw "No backup files found in $backupDir"
                 }
             } else {
                 Write-ConfigLog "Backup directory does not exist: $backupDir" "ERROR"
-                exit 1
+                throw "Backup directory does not exist: $backupDir"
             }
         }
 
         if (-not (Test-Path $BackupFile)) {
             Write-ConfigLog "Backup file not found: $BackupFile" "ERROR"
-            exit 1
+            throw "Backup file not found: $BackupFile"
         }
 
         $ConfigFile = $BackupFile
@@ -451,7 +451,7 @@ try {
     # Verify config file exists
     if (-not (Test-Path $ConfigFile)) {
         Write-ConfigLog "Configuration file not found: $ConfigFile" "ERROR"
-        exit 1
+        throw "Configuration file not found: $ConfigFile"
     }
 
     Write-ConfigLog "Loading configuration from: $ConfigFile" "INFO"
@@ -462,7 +462,7 @@ try {
         $config = ConvertFrom-Yaml $configContent
     } catch {
         Write-ConfigLog "Failed to parse YAML configuration: $_" "ERROR"
-        exit 1
+        throw "Failed to parse YAML configuration: $_"
     }
 
     # Validate configuration
@@ -470,7 +470,7 @@ try {
 
     if (-not $validationResult) {
         Write-ConfigLog "Configuration validation failed. Please fix errors and try again." "ERROR"
-        exit 1
+        throw "Configuration validation failed"
     }
 
     if ($Validate) {
