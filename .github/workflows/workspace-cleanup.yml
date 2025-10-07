@@ -44,9 +44,13 @@ jobs:
           Write-Host "DaysOld: $daysOld"
           Write-Host "MinFreeSpaceGB: $minFreeSpace"
 
+          # Exclude CandyRush Library folder from cleanup
+          $excludePaths = @("C:\actions-runner\_work\CandyRush\CandyRush\Library")
+
           & "${{ github.workspace }}\scripts\cleanup-workspace.ps1" `
             -DaysOld $daysOld `
             -MinFreeSpaceGB $minFreeSpace `
+            -ExcludePaths $excludePaths `
             $dryRun
 
       - name: Upload cleanup logs
