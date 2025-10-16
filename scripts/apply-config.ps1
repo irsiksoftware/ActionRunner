@@ -181,7 +181,7 @@ function Test-Configuration {
         foreach ($validationError in $errors) {
             Write-ConfigLog "  - $validationError" "ERROR"
         }
-        return $false
+        throw "Configuration validation failed with $($errors.Count) error(s)"
     }
 
     Write-ConfigLog "Configuration validation passed" "SUCCESS"
@@ -466,12 +466,7 @@ try {
     }
 
     # Validate configuration
-    $validationResult = Test-Configuration -Config $config
-
-    if (-not $validationResult) {
-        Write-ConfigLog "Configuration validation failed. Please fix errors and try again." "ERROR"
-        throw "Configuration validation failed"
-    }
+    Test-Configuration -Config $config
 
     if ($Validate) {
         Write-ConfigLog "Validation completed successfully. No changes applied." "SUCCESS"
