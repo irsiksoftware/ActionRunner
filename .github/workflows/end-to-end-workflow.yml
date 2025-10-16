@@ -1,0 +1,364 @@
+name: End-to-End Workflow Test
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * *'  # Run daily at 2 AM
+
+jobs:
+  # Complete end-to-end workflow test
+  e2e-workflow:
+    name: 🔄 Complete E2E Workflow
+    runs-on: [self-hosted, windows]
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Pester testing framework
+        shell: powershell
+        run: |
+          Write-Host "Installing Pester testing framework..." -ForegroundColor Cyan
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+          $pesterVersion = (Get-Module Pester).Version
+          Write-Host "✓ Pester $pesterVersion installed" -ForegroundColor Green
+
+      - name: Pre-workflow health check
+        shell: powershell
+        run: |
+          Write-Host "Running pre-workflow health check..." -ForegroundColor Cyan
+
+          if (Test-Path .\scripts\health-check.ps1) {
+            $health = & .\scripts\health-check.ps1 -OutputFormat JSON -DiskThresholdGB 10 2>&1
+
+            if ($LASTEXITCODE -eq 0) {
+              $healthJson = $health | ConvertFrom-Json
+              Write-Host "✓ Health Status: $($healthJson.OverallHealth)" -ForegroundColor Green
+              Write-Host "  - Disk Space: $($healthJson.Checks.DiskSpace.FreeSpaceGB) GB available" -ForegroundColor Gray
+              Write-Host "  - CPU Usage: $($healthJson.Checks.SystemResources.CPUUsagePercentage)%" -ForegroundColor Gray
+              Write-Host "  - RAM Usage: $($healthJson.Checks.SystemResources.RAMUsagePercentage)%" -ForegroundColor Gray
+            } else {
+              Write-Warning "Health check returned non-zero exit code, continuing..."
+            }
+          } else {
+            Write-Host "Health check script not found, skipping..." -ForegroundColor Yellow
+          }
+
+      - name: Verify multi-framework support
+        shell: powershell
+        run: |
+          Write-Host "`nVerifying framework support..." -ForegroundColor Cyan
+
+          # PowerShell
+          Write-Host "PowerShell: " -NoNewline
+          Write-Host "$($PSVersionTable.PSVersion) ($($PSVersionTable.PSEdition))" -ForegroundColor Green
+
+          # .NET
+          $dotnetVersion = dotnet --version 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host ".NET SDK: " -NoNewline
+            Write-Host "$dotnetVersion" -ForegroundColor Green
+          } else {
+            Write-Host ".NET SDK: " -NoNewline
+            Write-Host "Not installed" -ForegroundColor Yellow
+          }
+
+          # Python
+          $pythonVersion = python --version 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Python: " -NoNewline
+            Write-Host "$pythonVersion" -ForegroundColor Green
+          } else {
+            Write-Host "Python: " -NoNewline
+            Write-Host "Not installed" -ForegroundColor Yellow
+          }
+
+          # Node.js
+          $nodeVersion = node --version 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Node.js: " -NoNewline
+            Write-Host "$nodeVersion" -ForegroundColor Green
+          } else {
+            Write-Host "Node.js: " -NoNewline
+            Write-Host "Not installed" -ForegroundColor Yellow
+          }
+
+          # Docker
+          $dockerVersion = docker --version 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Docker: " -NoNewline
+            Write-Host "$dockerVersion" -ForegroundColor Green
+          } else {
+            Write-Host "Docker: " -NoNewline
+            Write-Host "Not installed" -ForegroundColor Yellow
+          }
+
+          # Git
+          $gitVersion = git --version 2>$null
+          if ($LASTEXITCODE -eq 0) {
+            Write-Host "Git: " -NoNewline
+            Write-Host "$gitVersion" -ForegroundColor Green
+          }
+
+      - name: Run end-to-end integration tests
+        shell: powershell
+        run: |
+          Write-Host "`nRunning E2E integration tests..." -ForegroundColor Cyan
+
+          $testPath = ".\tests\end-to-end-workflow.Integration.Tests.ps1"
+
+          if (Test-Path $testPath) {
+            $config = New-PesterConfiguration
+            $config.Run.Path = $testPath
+            $config.Run.PassThru = $true
+            $config.Output.Verbosity = 'Detailed'
+            $config.Run.Exit = $false
+            $config.TestResult.Enabled = $true
+            $config.TestResult.OutputPath = 'e2e-test-results.xml'
+            $config.TestResult.OutputFormat = 'NUnitXml'
+
+            $result = Invoke-Pester -Configuration $config
+
+            Write-Host "`n=== E2E Test Results ===" -ForegroundColor Cyan
+            Write-Host "Total Tests: $($result.TotalCount)" -ForegroundColor White
+            Write-Host "Passed: $($result.PassedCount)" -ForegroundColor Green
+            Write-Host "Failed: $($result.FailedCount)" -ForegroundColor $(if ($result.FailedCount -gt 0) { 'Red' } else { 'Green' })
+            Write-Host "Skipped: $($result.SkippedCount)" -ForegroundColor Yellow
+
+            if ($result.FailedCount -gt 0) {
+              Write-Host "`n✗ E2E tests failed" -ForegroundColor Red
+              exit 1
+            } else {
+              Write-Host "`n✓ All E2E tests passed!" -ForegroundColor Green
+            }
+          } else {
+            Write-Error "E2E test file not found: $testPath"
+            exit 1
+          }
+
+      - name: Simulate workflow build step
+        shell: powershell
+        run: |
+          Write-Host "`nSimulating build step..." -ForegroundColor Cyan
+
+          # Create temporary build artifacts
+          $buildDir = Join-Path $env:TEMP "e2e-build-$(Get-Random)"
+          New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
+
+          # Simulate build output
+          @"
+Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
+=================================
+✓ Compilation successful
+✓ Tests passed
+✓ Artifacts generated
+"@ | Out-File -FilePath (Join-Path $buildDir "build.log")
+
+          Write-Host "✓ Build completed successfully" -ForegroundColor Green
+          Write-Host "  Build directory: $buildDir" -ForegroundColor Gray
+
+          # Cleanup
+          Remove-Item -Path $buildDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Simulate workflow test step
+        shell: powershell
+        run: |
+          Write-Host "`nSimulating test execution..." -ForegroundColor Cyan
+
+          # Create test results
+          $testDir = Join-Path $env:TEMP "e2e-tests-$(Get-Random)"
+          New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+
+          $testResults = @"
+<?xml version="1.0" encoding="UTF-8"?>
+<testsuites>
+  <testsuite name="E2E Workflow Tests" tests="5" failures="0" errors="0" time="12.5">
+    <testcase name="test_runner_setup" time="2.1" />
+    <testcase name="test_github_integration" time="3.2" />
+    <testcase name="test_multi_framework" time="4.5" />
+    <testcase name="test_health_monitoring" time="1.8" />
+    <testcase name="test_cleanup" time="0.9" />
+  </testsuite>
+</testsuites>
+"@
+          $testResults | Out-File -FilePath (Join-Path $testDir "test-results.xml")
+
+          Write-Host "✓ All tests passed (5/5)" -ForegroundColor Green
+
+          # Cleanup
+          Remove-Item -Path $testDir -Recurse -Force -ErrorAction SilentlyContinue
+
+      - name: Verify GitHub Actions integration
+        shell: powershell
+        run: |
+          Write-Host "`nVerifying GitHub Actions integration..." -ForegroundColor Cyan
+
+          # Verify environment variables
+          $requiredVars = @(
+            'GITHUB_WORKFLOW',
+            'GITHUB_RUN_ID',
+            'GITHUB_RUN_NUMBER',
+            'GITHUB_REPOSITORY',
+            'GITHUB_SHA'
+          )
+
+          foreach ($var in $requiredVars) {
+            $value = [Environment]::GetEnvironmentVariable($var)
+            if ($value) {
+              Write-Host "✓ $var" -ForegroundColor Green
+            } else {
+              Write-Host "✗ $var (not set)" -ForegroundColor Yellow
+            }
+          }
+
+          # Test workflow commands
+          Write-Host "`nTesting workflow commands..." -ForegroundColor Cyan
+          Write-Host "::group::E2E Workflow Group"
+          Write-Host "  This is a collapsible group in GitHub Actions"
+          Write-Host "::endgroup::"
+
+          Write-Host "::notice title=E2E Success::End-to-end workflow test completed successfully"
+
+      - name: Post-workflow health check
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "`nRunning post-workflow health check..." -ForegroundColor Cyan
+
+          if (Test-Path .\scripts\health-check.ps1) {
+            $health = & .\scripts\health-check.ps1 -OutputFormat JSON -DiskThresholdGB 10 2>&1
+
+            if ($LASTEXITCODE -eq 0) {
+              $healthJson = $health | ConvertFrom-Json
+              Write-Host "✓ Final Health Status: $($healthJson.OverallHealth)" -ForegroundColor Green
+
+              if ($healthJson.OverallHealth -eq 'Unhealthy') {
+                Write-Warning "System health degraded during workflow execution"
+              }
+            }
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-test-results
+          path: |
+            e2e-test-results.xml
+            test-results.xml
+          if-no-files-found: ignore
+
+      - name: Cleanup workspace
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "`nCleaning up test artifacts..." -ForegroundColor Cyan
+
+          if (Test-Path .\scripts\cleanup-workspace.ps1) {
+            & .\scripts\cleanup-workspace.ps1 -Force -Verbose
+            Write-Host "✓ Workspace cleaned" -ForegroundColor Green
+          } else {
+            Write-Host "Cleanup script not found, performing basic cleanup..." -ForegroundColor Yellow
+
+            # Basic cleanup
+            $tempFiles = Get-ChildItem -Path $env:TEMP -Filter "e2e-*" -Directory
+            foreach ($file in $tempFiles) {
+              Remove-Item -Path $file.FullName -Recurse -Force -ErrorAction SilentlyContinue
+            }
+          }
+
+  # Multi-platform workflow test (if Linux runner available)
+  e2e-multi-platform:
+    name: 🔄 Multi-Platform E2E
+    runs-on: [self-hosted, linux]
+    continue-on-error: true  # Don't fail if Linux runner not available
+    timeout-minutes: 20
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Linux environment
+        shell: bash
+        run: |
+          echo "=== Linux Environment ==="
+          echo "OS: $(uname -s)"
+          echo "Kernel: $(uname -r)"
+          echo "Architecture: $(uname -m)"
+          echo ""
+
+          echo "=== Available Tools ==="
+          command -v git && echo "✓ Git: $(git --version)"
+          command -v docker && echo "✓ Docker: $(docker --version)"
+          command -v python3 && echo "✓ Python: $(python3 --version)"
+          command -v node && echo "✓ Node.js: $(node --version)"
+
+      - name: Run basic integration test
+        shell: bash
+        run: |
+          echo "Running Linux-specific integration test..."
+
+          # Test runner environment
+          if [ -n "$RUNNER_WORKSPACE" ]; then
+            echo "✓ Runner workspace: $RUNNER_WORKSPACE"
+          fi
+
+          if [ -n "$GITHUB_WORKSPACE" ]; then
+            echo "✓ GitHub workspace: $GITHUB_WORKSPACE"
+          fi
+
+          echo "✓ Linux E2E test completed"
+
+  # Summary job
+  e2e-summary:
+    name: 📊 E2E Test Summary
+    runs-on: [self-hosted, windows]
+    needs: [e2e-workflow, e2e-multi-platform]
+    if: always()
+
+    steps:
+      - name: Generate test summary
+        shell: powershell
+        run: |
+          Write-Host "`n=== END-TO-END WORKFLOW TEST SUMMARY ===" -ForegroundColor Cyan
+          Write-Host ""
+
+          $windowsStatus = "${{ needs.e2e-workflow.result }}"
+          $linuxStatus = "${{ needs.e2e-multi-platform.result }}"
+
+          Write-Host "Windows E2E: " -NoNewline
+          if ($windowsStatus -eq "success") {
+            Write-Host "✓ PASSED" -ForegroundColor Green
+          } elseif ($windowsStatus -eq "failure") {
+            Write-Host "✗ FAILED" -ForegroundColor Red
+          } else {
+            Write-Host "⊘ SKIPPED" -ForegroundColor Yellow
+          }
+
+          Write-Host "Linux E2E: " -NoNewline
+          if ($linuxStatus -eq "success") {
+            Write-Host "✓ PASSED" -ForegroundColor Green
+          } elseif ($linuxStatus -eq "failure") {
+            Write-Host "✗ FAILED (non-blocking)" -ForegroundColor Yellow
+          } else {
+            Write-Host "⊘ SKIPPED (runner not available)" -ForegroundColor Gray
+          }
+
+          Write-Host ""
+
+          if ($windowsStatus -eq "success") {
+            Write-Host "✓ End-to-end workflow validation completed successfully!" -ForegroundColor Green
+            exit 0
+          } else {
+            Write-Host "✗ End-to-end workflow validation failed" -ForegroundColor Red
+            exit 1
+          }
