@@ -39,6 +39,38 @@ jobs:
             Write-Host "`n[SUCCESS] All health checks passed!" -ForegroundColor Green
           }
 
+      - name: Check Docker health
+        shell: powershell
+        run: |
+          Write-Host "`n=== Docker Health Check ===" -ForegroundColor Cyan
+
+          # Check if Docker is running
+          try {
+            $dockerInfo = docker info 2>&1
+            if ($LASTEXITCODE -eq 0) {
+              Write-Host "[OK] Docker is running" -ForegroundColor Green
+            } else {
+              Write-Error "Docker is not running or not accessible"
+              exit 1
+            }
+          } catch {
+            Write-Error "Failed to check Docker status: $_"
+            exit 1
+          }
+
+          # Check Docker containers
+          Write-Host "`nChecking Docker containers..." -ForegroundColor Yellow
+          docker ps -a --format "table {{.Names}}\t{{.Status}}\t{{.State}}"
+
+          # Check for unhealthy containers
+          $unhealthy = docker ps --filter "health=unhealthy" --format "{{.Names}}"
+          if ($unhealthy) {
+            Write-Error "Unhealthy containers found: $unhealthy"
+            exit 1
+          }
+
+          Write-Host "`n[OK] Docker health check passed" -ForegroundColor Green
+
       - name: Upload health report
         if: always()
         uses: actions/upload-artifact@v4
