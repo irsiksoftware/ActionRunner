@@ -81,6 +81,7 @@ $CapabilityBuckets = @{
         Description = 'GitHub integration, workflows, end-to-end tests'
         Tags = @('Integration', 'Workflow', 'E2E')
         Tests = @(
+            'end-to-end-workflow.Integration.Tests.ps1'
             'Workflows.Tests.ps1'
             'migrate-to-self-hosted.Tests.ps1'
             'register-runner.Tests.ps1'
