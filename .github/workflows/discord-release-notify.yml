@@ -1,0 +1,88 @@
+name: Discord Release Notification
+
+on:
+  release:
+    types: [published, created]
+
+jobs:
+  notify-release:
+    name: Notify Discord on Release
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Send Discord notification
+        shell: powershell
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.RELEASE_WEBHOOK }}
+        run: |
+          $webhook = $env:DISCORD_WEBHOOK
+
+          if (-not $webhook) {
+            Write-Warning "RELEASE_WEBHOOK secret not configured"
+            exit 0
+          }
+
+          # Build release info
+          $releaseName = "${{ github.event.release.name }}"
+          $releaseTag = "${{ github.event.release.tag_name }}"
+          $releaseUrl = "${{ github.event.release.html_url }}"
+          $releaseBody = "${{ github.event.release.body }}" -replace '"', '\"'
+          $author = "${{ github.event.release.author.login }}"
+          $repo = "${{ github.repository }}"
+          $isPrerelease = "${{ github.event.release.prerelease }}"
+
+          # Truncate release body if too long
+          if ($releaseBody.Length -gt 300) {
+            $releaseBody = $releaseBody.Substring(0, 297) + "..."
+          }
+
+          # Set color based on release type
+          $color = if ($isPrerelease -eq "true") { 16776960 } else { 3066993 }  # Yellow for prerelease, green for release
+
+          # Create Discord embed payload
+          $payload = @{
+            embeds = @(
+              @{
+                title = if ($releaseName) { $releaseName } else { "New Release: $releaseTag" }
+                description = if ($releaseBody) { $releaseBody } else { "No description provided" }
+                url = $releaseUrl
+                color = $color
+                fields = @(
+                  @{
+                    name = "Repository"
+                    value = $repo
+                    inline = $true
+                  }
+                  @{
+                    name = "Tag"
+                    value = $releaseTag
+                    inline = $true
+                  }
+                  @{
+                    name = "Author"
+                    value = $author
+                    inline = $true
+                  }
+                  @{
+                    name = "Type"
+                    value = if ($isPrerelease -eq "true") { "Pre-release" } else { "Release" }
+                    inline = $true
+                  }
+                )
+                timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+              }
+            )
+          } | ConvertTo-Json -Depth 10
+
+          # Send to Discord
+          try {
+            Invoke-RestMethod -Uri $webhook -Method Post -Body $payload -ContentType 'application/json'
+            Write-Host "Successfully sent Discord notification for release $releaseTag"
+          } catch {
+            Write-Warning "Failed to send Discord notification: $_"
+            # Don't fail the workflow if notification fails
+            exit 0
+          }

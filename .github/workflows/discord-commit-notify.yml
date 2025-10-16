@@ -1,0 +1,78 @@
+name: Discord Commit Notification
+
+on:
+  push:
+    branches: [ main, develop ]
+
+jobs:
+  notify-commit:
+    name: Notify Discord on Commit
+    runs-on: [self-hosted, windows]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Send Discord notification
+        shell: powershell
+        env:
+          DISCORD_WEBHOOK: ${{ secrets.COMMIT_WEBHOOK }}
+        run: |
+          $webhook = $env:DISCORD_WEBHOOK
+
+          if (-not $webhook) {
+            Write-Warning "COMMIT_WEBHOOK secret not configured"
+            exit 0
+          }
+
+          # Build commit info
+          $commitMessage = "${{ github.event.head_commit.message }}" -replace '"', '\"'
+          $commitUrl = "${{ github.event.head_commit.url }}"
+          $author = "${{ github.event.head_commit.author.name }}"
+          $branch = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+
+          # Truncate commit message if too long
+          if ($commitMessage.Length -gt 200) {
+            $commitMessage = $commitMessage.Substring(0, 197) + "..."
+          }
+
+          # Create Discord embed payload
+          $payload = @{
+            embeds = @(
+              @{
+                title = "New Commit to $branch"
+                description = $commitMessage
+                url = $commitUrl
+                color = 5814783  # Blue color
+                fields = @(
+                  @{
+                    name = "Repository"
+                    value = $repo
+                    inline = $true
+                  }
+                  @{
+                    name = "Author"
+                    value = $author
+                    inline = $true
+                  }
+                  @{
+                    name = "Branch"
+                    value = $branch
+                    inline = $true
+                  }
+                )
+                timestamp = (Get-Date).ToUniversalTime().ToString("yyyy-MM-ddTHH:mm:ss.fffZ")
+              }
+            )
+          } | ConvertTo-Json -Depth 10
+
+          # Send to Discord
+          try {
+            Invoke-RestMethod -Uri $webhook -Method Post -Body $payload -ContentType 'application/json'
+            Write-Host "Successfully sent Discord notification for commit"
+          } catch {
+            Write-Warning "Failed to send Discord notification: $_"
+            # Don't fail the workflow if notification fails
+            exit 0
+          }
