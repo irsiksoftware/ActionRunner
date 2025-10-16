@@ -133,10 +133,10 @@ Describe "GitHub Workflows Configuration" {
                 $content = Get-Content $workflow.FullName -Raw
 
                 # Check for common secret patterns
-                $content | Should -Not -Match "ghp_[a-zA-Z0-9]{36}"
-                $content | Should -Not -Match "ghs_[a-zA-Z0-9]{36}"
-                $content | Should -Not -Match "github_pat_[a-zA-Z0-9_]{82}"
-                $content | Should -Not -Match "password:\s*['\"][^'\"]+['\"]"
+                $content | Should -Not -Match "ghp_\[a-zA-Z0-9\]\{36\}"
+                $content | Should -Not -Match "ghs_\[a-zA-Z0-9\]\{36\}"
+                $content | Should -Not -Match "github_pat_\[a-zA-Z0-9_\]\{82\}"
+                $content | Should -Not -Match "password:\s*\['\""\]\[^'\""\]+\['\""\]"
             }
         }
 
