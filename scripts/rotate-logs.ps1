@@ -92,12 +92,12 @@ $stats = @{
 # Step 1: Compress old logs
 Write-Host "[1/2] Compressing logs older than $RetentionDays days..." -ForegroundColor Yellow
 
-$logsToCompress = Get-ChildItem -Path $LogPath -Recurse -File |
+$logsToCompress = @(Get-ChildItem -Path $LogPath -Recurse -File |
     Where-Object {
         $_.Extension -in @('.log', '.txt', '.json') -and
         $_.LastWriteTime -lt $compressionDate -and
         $_.Directory.Name -ne 'archive'
-    }
+    })
 
 $stats.FilesScanned = $logsToCompress.Count
 
@@ -141,8 +141,8 @@ if ($logsToCompress.Count -eq 0) {
 # Step 2: Delete old archives
 Write-Host "`n[2/2] Deleting archives older than $ArchiveRetentionDays days..." -ForegroundColor Yellow
 
-$archivesToDelete = Get-ChildItem -Path $archivePath -Filter "*.zip" -ErrorAction SilentlyContinue |
-    Where-Object { $_.LastWriteTime -lt $deletionDate }
+$archivesToDelete = @(Get-ChildItem -Path $archivePath -Filter "*.zip" -ErrorAction SilentlyContinue |
+    Where-Object { $_.LastWriteTime -lt $deletionDate })
 
 if ($archivesToDelete.Count -eq 0) {
     Write-Host "  No archives to delete" -ForegroundColor Gray
@@ -168,8 +168,8 @@ if ($archivesToDelete.Count -eq 0) {
 
 # Step 3: Clean up empty directories
 Write-Host "`n[3/3] Cleaning up empty directories..." -ForegroundColor Yellow
-$emptyDirs = Get-ChildItem -Path $LogPath -Recurse -Directory |
-    Where-Object { $_.Name -ne 'archive' -and (Get-ChildItem $_.FullName -File).Count -eq 0 }
+$emptyDirs = @(Get-ChildItem -Path $LogPath -Recurse -Directory |
+    Where-Object { $_.Name -ne 'archive' -and @(Get-ChildItem $_.FullName -File).Count -eq 0 })
 
 if ($emptyDirs.Count -eq 0) {
     Write-Host "  No empty directories found" -ForegroundColor Gray
@@ -203,8 +203,12 @@ if ($stats.FilesCompressed -gt 0 -or $stats.FilesDeleted -gt 0) {
 
 # Current disk usage
 Write-Host "`n=== Current Log Disk Usage ===" -ForegroundColor Cyan
-$currentLogs = Get-ChildItem -Path $LogPath -Recurse -File
-$totalSize = ($currentLogs | Measure-Object -Property Length -Sum).Sum
+$currentLogs = @(Get-ChildItem -Path $LogPath -Recurse -File)
+$totalSize = if ($currentLogs.Count -gt 0) {
+    ($currentLogs | Measure-Object -Property Length -Sum).Sum
+} else {
+    0
+}
 Write-Host "Total files: $($currentLogs.Count)" -ForegroundColor White
 Write-Host "Total size: $([math]::Round($totalSize / 1MB, 2)) MB" -ForegroundColor White
 
