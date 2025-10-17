@@ -81,11 +81,11 @@ function Get-SystemInfo {
 
     $info = @{
         OS = [System.Environment]::OSVersion.VersionString
-        Processor = (Get-WmiObject Win32_Processor | Select-Object -First 1).Name
-        ProcessorCores = (Get-WmiObject Win32_Processor | Select-Object -First 1).NumberOfCores
-        ProcessorThreads = (Get-WmiObject Win32_Processor | Select-Object -First 1).NumberOfLogicalProcessors
-        TotalMemoryGB = [math]::Round((Get-WmiObject Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)
-        AvailableMemoryGB = [math]::Round((Get-WmiObject Win32_OperatingSystem).FreePhysicalMemory / 1MB / 1024, 2)
+        Processor = (Get-CimInstance Win32_Processor | Select-Object -First 1).Name
+        ProcessorCores = (Get-CimInstance Win32_Processor | Select-Object -First 1).NumberOfCores
+        ProcessorThreads = (Get-CimInstance Win32_Processor | Select-Object -First 1).NumberOfLogicalProcessors
+        TotalMemoryGB = [math]::Round((Get-CimInstance Win32_ComputerSystem).TotalPhysicalMemory / 1GB, 2)
+        AvailableMemoryGB = [math]::Round((Get-CimInstance Win32_OperatingSystem).FreePhysicalMemory / 1MB / 1024, 2)
         PowerShellVersion = $PSVersionTable.PSVersion.ToString()
     }
 
@@ -581,7 +581,8 @@ function Export-BenchmarkReport {
         } else {
             foreach ($metric in $data.Keys) {
                 if ($metric -ne "RawResults") {
-                    $markdown += "- **$metric:** $($data[$metric])`n"
+                    $metricValue = $data[$metric]
+                    $markdown += "- **${metric}:** $metricValue`n"
                 }
             }
         }
