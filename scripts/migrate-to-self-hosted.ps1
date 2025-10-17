@@ -7,6 +7,12 @@
     GitHub Actions minutes limits. It verifies runner setup, updates workflow files,
     and validates the migration.
 
+    Features:
+    - Scanning workflow files for GitHub-hosted runner configurations
+    - Backing up original workflows
+    - Updating runs-on to use self-hosted runners
+    - Providing a migration report
+
 .PARAMETER RepoPath
     Path to the local repository (default: current directory)
 
@@ -19,11 +25,31 @@
 .PARAMETER BackupWorkflows
     Create backup of workflow files before updating (default: true)
 
+.PARAMETER WorkflowPath
+    Path to the .github/workflows directory (default: .github/workflows)
+
+.PARAMETER RunnerLabels
+    Comma-separated list of runner labels (default: self-hosted)
+
+.PARAMETER BackupDir
+    Directory to store workflow backups (default: .github/workflows.backup)
+
+.PARAMETER DryRun
+    Preview changes without modifying files
+
 .EXAMPLE
     .\migrate-to-self-hosted.ps1 -VerifyOnly
 
 .EXAMPLE
     .\migrate-to-self-hosted.ps1 -AutoUpdate -RepoPath "C:\Code\ActionRunner"
+
+.EXAMPLE
+    .\migrate-to-self-hosted.ps1
+    Migrates all workflows with default settings
+
+.EXAMPLE
+    .\migrate-to-self-hosted.ps1 -RunnerLabels "self-hosted,linux,x64" -DryRun
+    Preview migration with specific runner labels
 #>
 
 [CmdletBinding()]
@@ -38,10 +64,30 @@ param(
     [switch]$AutoUpdate,
 
     [Parameter(Mandatory = $false)]
-    [bool]$BackupWorkflows = $true
+    [bool]$BackupWorkflows = $true,
+
+    [Parameter()]
+    [string]$WorkflowPath = ".github/workflows",
+
+    [Parameter()]
+    [string]$RunnerLabels = "self-hosted",
+
+    [Parameter()]
+    [string]$BackupDir = ".github/workflows.backup",
+
+    [Parameter()]
+    [switch]$DryRun
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
+
+# GitHub-hosted runner identifiers to detect
+$GitHubHostedRunners = @(
+    'ubuntu-latest', 'ubuntu-22.04', 'ubuntu-20.04',
+    'windows-latest', 'windows-2022', 'windows-2019',
+    'macos-latest', 'macos-13', 'macos-12', 'macos-11'
+)
 
 # Setup logging
 $LogDir = Join-Path $RepoPath "logs"
@@ -64,6 +110,21 @@ function Write-Log {
     }
 
     Add-Content -Path $LogFile -Value $logMessage
+}
+
+function Write-Header {
+    param([string]$Message)
+    Write-Host "`n=== $Message ===" -ForegroundColor Cyan
+}
+
+function Write-Success {
+    param([string]$Message)
+    Write-Host "[OK] $Message" -ForegroundColor Green
+}
+
+function Write-Info {
+    param([string]$Message)
+    Write-Host "[INFO] $Message" -ForegroundColor Yellow
 }
 
 function Test-RunnerAvailability {
@@ -114,17 +175,37 @@ function Test-RunnerAvailability {
 }
 
 function Get-WorkflowFiles {
-    $workflowDir = Join-Path $RepoPath ".github\workflows"
+    param([string]$Path)
+
+    $workflowDir = if ([System.IO.Path]::IsPathRooted($Path)) {
+        $Path
+    } else {
+        Join-Path $RepoPath $Path
+    }
 
     if (-not (Test-Path $workflowDir)) {
         Write-Log "No workflows directory found at $workflowDir" "WARN"
         return @()
     }
 
-    $workflows = Get-ChildItem -Path $workflowDir -Filter "*.yml" -ErrorAction SilentlyContinue
-    $workflows += Get-ChildItem -Path $workflowDir -Filter "*.yaml" -ErrorAction SilentlyContinue
+    $workflows = Get-ChildItem -Path $workflowDir -Filter "*.yml" -File -ErrorAction SilentlyContinue
+    $workflows += Get-ChildItem -Path $workflowDir -Filter "*.yaml" -File -ErrorAction SilentlyContinue
 
     return $workflows
+}
+
+function Test-GitHubHostedRunner {
+    param([string]$Content)
+
+    foreach ($runner in $GitHubHostedRunners) {
+        if ($Content -match "runs-on:\s+$runner") {
+            return $true
+        }
+        if ($Content -match "runs-on:\s+\[$runner\]") {
+            return $true
+        }
+    }
+    return $false
 }
 
 function Test-WorkflowMigration {
@@ -142,21 +223,11 @@ function Test-WorkflowMigration {
     }
 
     # Check for GitHub-hosted runners
-    $githubHostedPatterns = @(
-        'runs-on:\s*ubuntu-latest',
-        'runs-on:\s*windows-latest',
-        'runs-on:\s*macos-latest',
-        'runs-on:\s*ubuntu-\d+\.\d+',
-        'runs-on:\s*windows-\d+\.\d+'
-    )
-
-    foreach ($pattern in $githubHostedPatterns) {
-        if ($content -match $pattern) {
-            return @{
-                NeedsMigration = $true
-                CurrentRunner = $matches[0]
-                Status = "Needs migration"
-            }
+    if (Test-GitHubHostedRunner -Content $content) {
+        return @{
+            NeedsMigration = $true
+            CurrentRunner = "GitHub-hosted"
+            Status = "Needs migration"
         }
     }
 
@@ -167,44 +238,78 @@ function Test-WorkflowMigration {
     }
 }
 
+function Convert-RunnerConfig {
+    param(
+        [string]$Content,
+        [string]$Labels
+    )
+
+    $labelsArray = $Labels -split ',' | ForEach-Object { $_.Trim() }
+    $runnerConfig = if ($labelsArray.Count -eq 1) {
+        $labelsArray[0]
+    } else {
+        "[" + ($labelsArray -join ", ") + "]"
+    }
+
+    $modified = $Content
+    foreach ($runner in $GitHubHostedRunners) {
+        # Match both simple and array format
+        $modified = $modified -replace "runs-on:\s+$runner", "runs-on: $runnerConfig"
+        $modified = $modified -replace "runs-on:\s+\[$runner\]", "runs-on: $runnerConfig"
+    }
+
+    return $modified
+}
+
+function Backup-Workflow {
+    param(
+        [string]$FilePath,
+        [string]$BackupDirectory
+    )
+
+    if (-not (Test-Path $BackupDirectory)) {
+        New-Item -ItemType Directory -Path $BackupDirectory -Force | Out-Null
+    }
+
+    $fileName = Split-Path $FilePath -Leaf
+    $backupPath = Join-Path $BackupDirectory $fileName
+    $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
+
+    # Add timestamp if backup already exists
+    if (Test-Path $backupPath) {
+        $baseName = [System.IO.Path]::GetFileNameWithoutExtension($fileName)
+        $extension = [System.IO.Path]::GetExtension($fileName)
+        $backupPath = Join-Path $BackupDirectory "$baseName.$timestamp$extension"
+    }
+
+    Copy-Item -Path $FilePath -Destination $backupPath -Force
+    return $backupPath
+}
+
 function Update-WorkflowToSelfHosted {
     param(
         [string]$WorkflowPath,
-        [bool]$CreateBackup = $true
+        [bool]$CreateBackup = $true,
+        [string]$Labels
     )
 
     Write-Log "Updating workflow: $WorkflowPath"
 
     # Create backup
     if ($CreateBackup) {
-        $backupPath = "$WorkflowPath.backup-$(Get-Date -Format 'yyyyMMdd-HHmmss')"
-        Copy-Item -Path $WorkflowPath -Destination $backupPath
+        $backupDir = Join-Path $RepoPath $BackupDir
+        $backupPath = Backup-Workflow -FilePath $WorkflowPath -BackupDirectory $backupDir
         Write-Log "Created backup: $backupPath" "INFO"
     }
 
     # Read workflow content
     $content = Get-Content -Path $WorkflowPath -Raw
 
-    # Replace GitHub-hosted runners with self-hosted
-    $replacements = @{
-        'runs-on: ubuntu-latest' = 'runs-on: [self-hosted, linux]'
-        'runs-on: windows-latest' = 'runs-on: [self-hosted, windows]'
-        'runs-on: macos-latest' = 'runs-on: [self-hosted, macos]'
-        'runs-on: ubuntu-\d+\.\d+' = 'runs-on: [self-hosted, linux]'
-        'runs-on: windows-\d+\.\d+' = 'runs-on: [self-hosted, windows]'
-    }
+    # Convert runner configuration
+    $modifiedContent = Convert-RunnerConfig -Content $content -Labels $Labels
 
-    $updated = $false
-    foreach ($pattern in $replacements.Keys) {
-        if ($content -match $pattern) {
-            $content = $content -replace $pattern, $replacements[$pattern]
-            $updated = $true
-            Write-Log "  Replaced: $pattern -> $($replacements[$pattern])" "INFO"
-        }
-    }
-
-    if ($updated) {
-        Set-Content -Path $WorkflowPath -Value $content -NoNewline
+    if ($content -ne $modifiedContent) {
+        Set-Content -Path $WorkflowPath -Value $modifiedContent -NoNewline
         Write-Log "  Workflow updated successfully" "SUCCESS"
         return $true
     } else {
@@ -213,11 +318,41 @@ function Update-WorkflowToSelfHosted {
     }
 }
 
+function Show-Diff {
+    param(
+        [string]$Original,
+        [string]$Modified,
+        [string]$FileName
+    )
+
+    Write-Host "`nChanges for: $FileName" -ForegroundColor Magenta
+    Write-Host "─" * 60
+
+    $originalLines = $Original -split "`n"
+    $modifiedLines = $Modified -split "`n"
+
+    for ($i = 0; $i -lt [Math]::Max($originalLines.Count, $modifiedLines.Count); $i++) {
+        $origLine = if ($i -lt $originalLines.Count) { $originalLines[$i] } else { "" }
+        $modLine = if ($i -lt $modifiedLines.Count) { $modifiedLines[$i] } else { "" }
+
+        if ($origLine -ne $modLine) {
+            if ($origLine) {
+                Write-Host "- $origLine" -ForegroundColor Red
+            }
+            if ($modLine) {
+                Write-Host "+ $modLine" -ForegroundColor Green
+            }
+        }
+    }
+    Write-Host "─" * 60
+}
+
 # Main execution
 Write-Log "=== GitHub Actions Self-Hosted Runner Migration ==="
 Write-Log "Repository Path: $RepoPath"
 Write-Log "Verify Only: $VerifyOnly"
 Write-Log "Auto Update: $AutoUpdate"
+Write-Log "Dry Run: $DryRun"
 Write-Log ""
 
 # Step 1: Verify runner availability
@@ -233,7 +368,7 @@ if (-not $runnerAvailable) {
 
 # Step 2: Analyze workflows
 Write-Log "Analyzing workflow files..."
-$workflows = Get-WorkflowFiles
+$workflows = Get-WorkflowFiles -Path $WorkflowPath
 
 if ($workflows.Count -eq 0) {
     Write-Log "No workflow files found" "WARN"
@@ -243,9 +378,18 @@ if ($workflows.Count -eq 0) {
 Write-Log "Found $($workflows.Count) workflow file(s)" "INFO"
 Write-Log ""
 
+# Track migration statistics
+$stats = @{
+    Total = $workflows.Count
+    Migrated = 0
+    AlreadyMigrated = 0
+    Skipped = 0
+}
+
 $migrationNeeded = @()
 $alreadyMigrated = @()
 $unknown = @()
+$migratedFiles = @()
 
 foreach ($workflow in $workflows) {
     Write-Log "Checking: $($workflow.Name)"
@@ -258,6 +402,7 @@ foreach ($workflow in $workflows) {
         $migrationNeeded += $workflow
     } elseif ($status.Status -eq "Already migrated") {
         $alreadyMigrated += $workflow
+        $stats.AlreadyMigrated++
     } else {
         $unknown += $workflow
     }
@@ -265,7 +410,7 @@ foreach ($workflow in $workflows) {
 
 Write-Log ""
 Write-Log "=== Migration Summary ==="
-Write-Log "Total workflows: $($workflows.Count)"
+Write-Log "Total workflows: $($stats.Total)"
 Write-Log "Already using self-hosted: $($alreadyMigrated.Count)" "SUCCESS"
 Write-Log "Need migration: $($migrationNeeded.Count)" $(if ($migrationNeeded.Count -gt 0) { "WARN" } else { "INFO" })
 Write-Log "Unknown status: $($unknown.Count)" $(if ($unknown.Count -gt 0) { "WARN" } else { "INFO" })
@@ -277,27 +422,43 @@ if ($VerifyOnly) {
 } elseif ($migrationNeeded.Count -eq 0) {
     Write-Log "All workflows are already configured for self-hosted runners!" "SUCCESS"
 } else {
-    if ($AutoUpdate) {
-        Write-Log "Auto-updating workflows to use self-hosted runners..." "INFO"
+    if ($AutoUpdate -or $DryRun) {
+        Write-Log "$(if ($DryRun) { 'Previewing' } else { 'Auto-updating' }) workflows to use self-hosted runners..." "INFO"
         Write-Log ""
 
-        $updateCount = 0
         foreach ($workflow in $migrationNeeded) {
-            $updated = Update-WorkflowToSelfHosted -WorkflowPath $workflow.FullName -CreateBackup $BackupWorkflows
-            if ($updated) {
-                $updateCount++
+            $content = Get-Content -Path $workflow.FullName -Raw
+            $modifiedContent = Convert-RunnerConfig -Content $content -Labels $RunnerLabels
+
+            if ($DryRun) {
+                Show-Diff -Original $content -Modified $modifiedContent -FileName $workflow.Name
+                $stats.Migrated++
+                $migratedFiles += $workflow.Name
+            } else {
+                $updated = Update-WorkflowToSelfHosted -WorkflowPath $workflow.FullName -CreateBackup $BackupWorkflows -Labels $RunnerLabels
+                if ($updated) {
+                    $stats.Migrated++
+                    $migratedFiles += $workflow.Name
+                }
             }
         }
 
         Write-Log ""
-        Write-Log "=== Migration Complete ===" "SUCCESS"
-        Write-Log "Updated $updateCount workflow file(s)" "SUCCESS"
-        Write-Log "Backup files created: $BackupWorkflows" "INFO"
+        Write-Log "=== Migration $(if ($DryRun) { 'Preview' } else { 'Complete' }) ===" "SUCCESS"
+        Write-Log "$(if ($DryRun) { 'Would update' } else { 'Updated' }) $($stats.Migrated) workflow file(s)" "SUCCESS"
+        if (-not $DryRun) {
+            Write-Log "Backup files created: $BackupWorkflows" "INFO"
+        }
         Write-Log ""
         Write-Log "Next steps:" "INFO"
         Write-Log "1. Review the changes in updated workflow files" "INFO"
-        Write-Log "2. Test workflows with 'workflow_dispatch' trigger" "INFO"
-        Write-Log "3. Commit and push changes to activate self-hosted runner usage" "INFO"
+        Write-Log "2. Ensure your self-hosted runner is configured with labels: $RunnerLabels" "INFO"
+        Write-Log "3. Test workflows with 'workflow_dispatch' trigger" "INFO"
+        Write-Log "4. Commit and push changes to activate self-hosted runner usage" "INFO"
+
+        if ($DryRun) {
+            Write-Log "`nRe-run without -DryRun to apply changes" "INFO"
+        }
     } else {
         Write-Log "Workflows need migration but AutoUpdate not specified" "WARN"
         Write-Log ""
