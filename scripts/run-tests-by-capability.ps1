@@ -159,7 +159,7 @@ function Write-CapabilitySummary {
         Write-Host "$status " -NoNewline -ForegroundColor $statusColor
         Write-Host "$($bucket.Name): " -NoNewline -ForegroundColor White
         Write-Host "$($testResult.PassedCount)/$($testResult.TotalCount) " -NoNewline
-        Write-Host "($passRate%)" -ForegroundColor $statusColor
+        Write-Host "($passRate%25)" -ForegroundColor $statusColor
     }
 
     Write-Host ""
@@ -174,7 +174,7 @@ function Write-CapabilitySummary {
 
     Write-Host "OVERALL: " -NoNewline -ForegroundColor Cyan
     Write-Host "$overallPassed/$totalTests tests passing " -NoNewline
-    Write-Host "($totalPassRate%)" -ForegroundColor $(if ($totalPassRate -ge 90) { "Green" } elseif ($totalPassRate -ge 70) { "Yellow" } else { "Red" })
+    Write-Host "($totalPassRate%25)" -ForegroundColor $(if ($totalPassRate -ge 90) { "Green" } elseif ($totalPassRate -ge 70) { "Yellow" } else { "Red" })
     Write-Host ""
 }
 
@@ -248,7 +248,7 @@ if ($Capability -eq 'All') {
 
     Write-Host "`n$($bucket.Icon) $($bucket.Name): " -NoNewline
     Write-Host "$($result.PassedCount)/$($result.TotalCount) tests passing " -NoNewline
-    Write-Host "($passRate%)" -ForegroundColor $(if ($passRate -ge 90) { "Green" } elseif ($passRate -ge 70) { "Yellow" } else { "Red" })
+    Write-Host "($passRate%25)" -ForegroundColor $(if ($passRate -ge 90) { "Green" } elseif ($passRate -ge 70) { "Yellow" } else { "Red" })
 }
 
 # Export results for CI
