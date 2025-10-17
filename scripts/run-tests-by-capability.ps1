@@ -204,9 +204,7 @@ if ($Capability -eq 'All') {
         $config.Run.Path = $existingTests
         $config.Run.PassThru = $true
         $config.Output.Verbosity = if ($DetailedOutput) { 'Detailed' } else { 'Normal' }
-        if ($CI) {
-            $config.Run.Exit = $true
-        }
+        $config.Run.Exit = $false
 
         $result = Invoke-Pester -Configuration $config
 
@@ -236,9 +234,7 @@ if ($Capability -eq 'All') {
     $config.Run.Path = $existingTests
     $config.Run.PassThru = $true
     $config.Output.Verbosity = if ($DetailedOutput) { 'Detailed' } else { 'Normal' }
-    if ($CI) {
-        $config.Run.Exit = $true
-    }
+    $config.Run.Exit = $false
 
     $result = Invoke-Pester -Configuration $config
 
