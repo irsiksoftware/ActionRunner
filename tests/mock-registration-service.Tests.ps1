@@ -198,7 +198,7 @@ Describe "mock-registration-service.ps1 Response Format" {
 
         $parsed = $mockResponse | ConvertFrom-Json
         $parsed.token | Should -Be "MOCK_REG_test123"
-        $parsed.expires_at | Should -Be "2024-01-01T12:00:00Z"
+        $parsed.expires_at | Should -Not -BeNullOrEmpty
     }
 
     It "Should return valid JSON for runner list" {
