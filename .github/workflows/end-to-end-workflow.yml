@@ -155,13 +155,14 @@ jobs:
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 
           # Simulate build output
-          @"
+          $buildLog = @"
 Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 =================================
-✓ Compilation successful
-✓ Tests passed
-✓ Artifacts generated
-"@ | Out-File -FilePath (Join-Path $buildDir "build.log")
+Compilation successful
+Tests passed
+Artifacts generated
+"@
+          $buildLog | Out-File -FilePath (Join-Path $buildDir "build.log")
 
           Write-Host "$([char]0x2713) Build completed successfully" -ForegroundColor Green
           Write-Host "  Build directory: $buildDir" -ForegroundColor Gray
