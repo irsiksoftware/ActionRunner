@@ -1,0 +1,119 @@
+name: LangChain Verification Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  langchain-verification:
+    name: LangChain Package Verification
+    runs-on: [self-hosted, windows]
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run LangChain verification tests
+        shell: powershell
+        run: |
+          Write-Host "=== Running LangChain Verification Tests ===" -ForegroundColor Cyan
+
+          # Run the verification script
+          & .\scripts\verify-langchain.ps1 -JsonOutput | Tee-Object -Variable langchainOutput
+
+          # Parse and display results
+          try {
+            $result = $langchainOutput | ConvertFrom-Json
+
+            Write-Host "`n=== LangChain Verification Results ===" -ForegroundColor Cyan
+            Write-Host "Timestamp: $($result.timestamp)" -ForegroundColor Gray
+            Write-Host "Passed: $($result.passed)" -ForegroundColor Green
+            Write-Host "Failed: $($result.failed)" -ForegroundColor Red
+            Write-Host "Warnings: $($result.warnings)" -ForegroundColor Yellow
+
+            Write-Host "`nDetailed Check Results:" -ForegroundColor Cyan
+            foreach ($check in $result.checks) {
+              $icon = switch ($check.severity) {
+                'Pass' { '✅' }
+                'Warning' { '⚠️' }
+                'Error' { '❌' }
+              }
+              $color = switch ($check.severity) {
+                'Pass' { 'Green' }
+                'Warning' { 'Yellow' }
+                'Error' { 'Red' }
+              }
+              Write-Host "  $icon $($check.name): $($check.actual)" -ForegroundColor $color
+            }
+
+            # Save results as artifact
+            $langchainOutput | Out-File -FilePath "langchain-verification-results.json" -Encoding UTF8
+
+            # Determine exit status
+            if ($result.failed -gt 0) {
+              Write-Host "`n❌ LangChain verification failed with $($result.failed) error(s)" -ForegroundColor Red
+              exit 1
+            }
+            elseif ($result.warnings -gt 0) {
+              Write-Host "`n⚠️ LangChain verification passed with $($result.warnings) warning(s)" -ForegroundColor Yellow
+              exit 0
+            }
+            else {
+              Write-Host "`n✅ LangChain verification completed successfully!" -ForegroundColor Green
+              exit 0
+            }
+          }
+          catch {
+            Write-Host "`n❌ Failed to parse verification results: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Raw output:" -ForegroundColor Yellow
+            Write-Host $langchainOutput
+            exit 1
+          }
+
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: langchain-verification-results
+          path: langchain-verification-results.json
+          if-no-files-found: ignore
+
+      - name: Run LangChain unit tests
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "`n=== Running LangChain Unit Tests ===" -ForegroundColor Cyan
+
+          # Setup Pester
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+          # Run tests
+          $testResult = Invoke-Pester -Path ".\tests\verify-langchain.Tests.ps1" -PassThru -Output Detailed
+
+          Write-Host "`n=== Test Results ===" -ForegroundColor Cyan
+          Write-Host "Total: $($testResult.TotalCount)" -ForegroundColor Gray
+          Write-Host "Passed: $($testResult.PassedCount)" -ForegroundColor Green
+          Write-Host "Failed: $($testResult.FailedCount)" -ForegroundColor Red
+          Write-Host "Skipped: $($testResult.SkippedCount)" -ForegroundColor Yellow
+
+          if ($testResult.FailedCount -gt 0) {
+            Write-Host "`n❌ LangChain unit tests failed" -ForegroundColor Red
+            exit 1
+          }
+          else {
+            Write-Host "`n✅ All LangChain unit tests passed!" -ForegroundColor Green
+            exit 0
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: langchain-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
