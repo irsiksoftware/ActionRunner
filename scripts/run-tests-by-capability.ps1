@@ -56,6 +56,7 @@ $CapabilityBuckets = @{
         Tests = @(
             'setup-docker.Tests.ps1'
             'cleanup-docker.Tests.ps1'
+            'verify-wsl2.Tests.ps1'
         )
         Icon = '🐳'
     }
