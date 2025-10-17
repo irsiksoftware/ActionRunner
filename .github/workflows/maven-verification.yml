@@ -1,0 +1,119 @@
+name: Maven Verification Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  maven-verification:
+    name: Maven Build Tool Verification
+    runs-on: [self-hosted, windows]
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Maven verification tests
+        shell: powershell
+        run: |
+          Write-Host "=== Running Maven Verification Tests ===" -ForegroundColor Cyan
+
+          # Run the verification script
+          & .\scripts\verify-maven.ps1 -JsonOutput | Tee-Object -Variable mavenOutput
+
+          # Parse and display results
+          try {
+            $result = $mavenOutput | ConvertFrom-Json
+
+            Write-Host "`n=== Maven Verification Results ===" -ForegroundColor Cyan
+            Write-Host "Timestamp: $($result.timestamp)" -ForegroundColor Gray
+            Write-Host "Passed: $($result.passed)" -ForegroundColor Green
+            Write-Host "Failed: $($result.failed)" -ForegroundColor Red
+            Write-Host "Warnings: $($result.warnings)" -ForegroundColor Yellow
+
+            Write-Host "`nDetailed Check Results:" -ForegroundColor Cyan
+            foreach ($check in $result.checks) {
+              $icon = switch ($check.severity) {
+                'Pass' { '✅' }
+                'Warning' { '⚠️' }
+                'Error' { '❌' }
+              }
+              $color = switch ($check.severity) {
+                'Pass' { 'Green' }
+                'Warning' { 'Yellow' }
+                'Error' { 'Red' }
+              }
+              Write-Host "  $icon $($check.name): $($check.actual)" -ForegroundColor $color
+            }
+
+            # Save results as artifact
+            $mavenOutput | Out-File -FilePath "maven-verification-results.json" -Encoding UTF8
+
+            # Determine exit status
+            if ($result.failed -gt 0) {
+              Write-Host "`n❌ Maven verification failed with $($result.failed) error(s)" -ForegroundColor Red
+              exit 1
+            }
+            elseif ($result.warnings -gt 0) {
+              Write-Host "`n⚠️ Maven verification passed with $($result.warnings) warning(s)" -ForegroundColor Yellow
+              exit 0
+            }
+            else {
+              Write-Host "`n✅ Maven verification completed successfully!" -ForegroundColor Green
+              exit 0
+            }
+          }
+          catch {
+            Write-Host "`n❌ Failed to parse verification results: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Raw output:" -ForegroundColor Yellow
+            Write-Host $mavenOutput
+            exit 1
+          }
+
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-verification-results
+          path: maven-verification-results.json
+          if-no-files-found: ignore
+
+      - name: Run Maven unit tests
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "`n=== Running Maven Unit Tests ===" -ForegroundColor Cyan
+
+          # Setup Pester
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+          # Run tests
+          $testResult = Invoke-Pester -Path ".\tests\verify-maven.Tests.ps1" -PassThru -Output Detailed
+
+          Write-Host "`n=== Test Results ===" -ForegroundColor Cyan
+          Write-Host "Total: $($testResult.TotalCount)" -ForegroundColor Gray
+          Write-Host "Passed: $($testResult.PassedCount)" -ForegroundColor Green
+          Write-Host "Failed: $($testResult.FailedCount)" -ForegroundColor Red
+          Write-Host "Skipped: $($testResult.SkippedCount)" -ForegroundColor Yellow
+
+          if ($testResult.FailedCount -gt 0) {
+            Write-Host "`n❌ Maven unit tests failed" -ForegroundColor Red
+            exit 1
+          }
+          else {
+            Write-Host "`n✅ All Maven unit tests passed!" -ForegroundColor Green
+            exit 0
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maven-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
