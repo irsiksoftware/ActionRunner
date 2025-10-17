@@ -105,19 +105,23 @@ Describe "verify-aspnetcore.ps1 - Content Checks" {
         $script:Content | Should -Match 'dotnet --version'
     }
 
+    It "Contains .NET runtime list check" {
+        $script:Content | Should -Match 'dotnet --list-runtimes'
+    }
+
     It "Contains ASP.NET Core runtime check" {
         $script:Content | Should -Match 'Microsoft\.AspNetCore\.App'
+    }
+
+    It "Contains .NET SDK list check" {
+        $script:Content | Should -Match 'dotnet --list-sdks'
     }
 
     It "Contains dotnet CLI functionality check" {
         $script:Content | Should -Match 'dotnet --info'
     }
 
-    It "Contains SDK workload check" {
-        $script:Content | Should -Match 'dotnet --list-sdks'
-    }
-
-    It "Contains web project creation test" {
+    It "Contains webapi project creation test" {
         $script:Content | Should -Match 'dotnet new webapi'
     }
 
@@ -144,6 +148,14 @@ Describe "verify-aspnetcore.ps1 - Content Checks" {
     It "Has proper exit code handling" {
         $script:Content | Should -Match 'exit 1'
         $script:Content | Should -Match 'exit 0'
+    }
+
+    It "Uses --no-https flag for test projects" {
+        $script:Content | Should -Match '--no-https'
+    }
+
+    It "Checks for .csproj file creation" {
+        $script:Content | Should -Match '\.csproj'
     }
 }
 
@@ -206,11 +218,46 @@ Describe "verify-aspnetcore.ps1 - Execution Tests" {
             $sdkCheck | Should -Not -BeNullOrEmpty
         }
 
-        It "Should perform ASP.NET Core runtime check" -Skip:(-not $script:DotnetAvailable) {
+        It "Should check for ASP.NET Core runtime" -Skip:(-not $script:DotnetAvailable) {
             $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
             $json = $output | ConvertFrom-Json
             $runtimeCheck = $json.checks | Where-Object { $_.name -eq 'ASP.NET Core Runtime' }
             $runtimeCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should verify dotnet CLI functionality" -Skip:(-not $script:DotnetAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $cliCheck = $json.checks | Where-Object { $_.name -eq 'dotnet CLI' }
+            $cliCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should verify ASP.NET Core SDK workload" -Skip:(-not $script:DotnetAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $workloadCheck = $json.checks | Where-Object { $_.name -eq 'ASP.NET Core SDK Workload' }
+            $workloadCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should test web project creation" -Skip:(-not $script:DotnetAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $createCheck = $json.checks | Where-Object { $_.name -eq 'Web Project Creation' }
+            $createCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should test web project build" -Skip:(-not $script:DotnetAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $buildCheck = $json.checks | Where-Object { $_.name -eq 'Web Project Build' }
+            $buildCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should test NuGet package restore" -Skip:(-not $script:DotnetAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $restoreCheck = $json.checks | Where-Object { $_.name -eq 'NuGet Package Restore' }
+            $restoreCheck | Should -Not -BeNullOrEmpty
         }
 
         It "Should accept MinimumVersion parameter" -Skip:(-not $script:DotnetAvailable) {
@@ -225,6 +272,10 @@ Describe "verify-aspnetcore.ps1 - Execution Tests" {
     }
 
     Context "Output Formatting" {
+        BeforeAll {
+            $script:DotnetAvailable = $null -ne (Get-Command dotnet -ErrorAction SilentlyContinue)
+        }
+
         It "Should display checkmarks for passed tests (non-JSON mode)" -Skip:(-not $script:DotnetAvailable) {
             $output = & $script:ScriptPath 2>&1 | Out-String
             $output | Should -Match '✅|✓|PASS'
@@ -272,23 +323,35 @@ Describe "verify-aspnetcore.ps1 - ASP.NET Core Specific Checks" {
         $script:Content = Get-Content $script:ScriptPath -Raw
     }
 
-    It "Checks for webapi template" {
+    It "Tests webapi template" {
         $script:Content | Should -Match 'webapi'
     }
 
-    It "Uses --no-https flag for testing" {
-        $script:Content | Should -Match '--no-https'
+    It "Tests project restore capability" {
+        $script:Content | Should -Match 'dotnet restore'
     }
 
-    It "Tests Release configuration build" {
-        $script:Content | Should -Match '--configuration Release'
+    It "Tests project build capability" {
+        $script:Content | Should -Match 'dotnet build'
     }
 
     It "Validates .csproj file creation" {
         $script:Content | Should -Match '\.csproj'
     }
 
-    It "Checks multiple .NET runtime versions" {
-        $script:Content | Should -Match '--list-runtimes'
+    It "Checks .NET CLI info output" {
+        $script:Content | Should -Match 'dotnet --info'
+    }
+
+    It "Validates SDK version comparison" {
+        $script:Content | Should -Match 'System\.Version'
+    }
+
+    It "Uses --configuration Release for builds" {
+        $script:Content | Should -Match '--configuration Release'
+    }
+
+    It "Verifies ASP.NET Core runtime specifically" {
+        $script:Content | Should -Match 'Microsoft\.AspNetCore\.App'
     }
 }
