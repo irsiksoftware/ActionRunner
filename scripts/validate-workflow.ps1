@@ -294,8 +294,9 @@ function Invoke-WorkflowValidation {
 
     if (Test-Path $Path -PathType Container) {
         # Validate all workflow files in directory
-        $files = Get-ChildItem -Path $Path -Filter "*.yml" -File
-        $files += Get-ChildItem -Path $Path -Filter "*.yaml" -File
+        $ymlFiles = @(Get-ChildItem -Path $Path -Filter "*.yml" -File)
+        $yamlFiles = @(Get-ChildItem -Path $Path -Filter "*.yaml" -File)
+        $files = $ymlFiles + $yamlFiles
     }
     elseif (Test-Path $Path -PathType Leaf) {
         # Validate single file
