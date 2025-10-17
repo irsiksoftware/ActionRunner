@@ -59,10 +59,10 @@ Describe "verify-go.ps1 - Parameter Validation" {
         $param.StaticType.Name | Should -Be 'String'
     }
 
-    It "MinimumVersion has default value of 1.18" {
+    It "MinimumVersion has default value of 1.20" {
         $param = $script:Params | Where-Object { $_.Name.VariablePath.UserPath -eq 'MinimumVersion' }
         $defaultValue = $param.DefaultValue.Extent.Text -replace '"', ''
-        $defaultValue | Should -Be '1.18'
+        $defaultValue | Should -Be '1.20'
     }
 }
 
@@ -101,8 +101,12 @@ Describe "verify-go.ps1 - Content Checks" {
         $script:Content = Get-Content $script:ScriptPath -Raw
     }
 
-    It "Contains Go version check" {
+    It "Contains go version check" {
         $script:Content | Should -Match 'go version'
+    }
+
+    It "Contains GOROOT check" {
+        $script:Content | Should -Match 'go env GOROOT'
     }
 
     It "Contains GOPATH check" {
@@ -111,10 +115,6 @@ Describe "verify-go.ps1 - Content Checks" {
 
     It "Contains Go modules check" {
         $script:Content | Should -Match 'GO111MODULE'
-    }
-
-    It "Contains Go environment check" {
-        $script:Content | Should -Match 'go env'
     }
 
     It "Contains Go build test" {
@@ -131,6 +131,10 @@ Describe "verify-go.ps1 - Content Checks" {
 
     It "Contains gofmt check" {
         $script:Content | Should -Match 'gofmt'
+    }
+
+    It "Contains go vet check" {
+        $script:Content | Should -Match 'go vet'
     }
 
     It "Uses proper error handling" {
@@ -210,18 +214,18 @@ Describe "verify-go.ps1 - Execution Tests" {
             $goCheck | Should -Not -BeNullOrEmpty
         }
 
+        It "Should perform GOROOT configuration check" -Skip:(-not $script:GoAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $gorootCheck = $json.checks | Where-Object { $_.name -eq 'GOROOT Configuration' }
+            $gorootCheck | Should -Not -BeNullOrEmpty
+        }
+
         It "Should perform GOPATH configuration check" -Skip:(-not $script:GoAvailable) {
             $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
             $json = $output | ConvertFrom-Json
             $gopathCheck = $json.checks | Where-Object { $_.name -eq 'GOPATH Configuration' }
             $gopathCheck | Should -Not -BeNullOrEmpty
-        }
-
-        It "Should perform Go modules check" -Skip:(-not $script:GoAvailable) {
-            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
-            $json = $output | ConvertFrom-Json
-            $modulesCheck = $json.checks | Where-Object { $_.name -eq 'Go Modules Support' }
-            $modulesCheck | Should -Not -BeNullOrEmpty
         }
 
         It "Should perform Go build test" -Skip:(-not $script:GoAvailable) {
@@ -231,8 +235,15 @@ Describe "verify-go.ps1 - Execution Tests" {
             $buildCheck | Should -Not -BeNullOrEmpty
         }
 
+        It "Should perform Go module project test" -Skip:(-not $script:GoAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $modTest = $json.checks | Where-Object { $_.name -eq 'Go Module Project Test' }
+            $modTest | Should -Not -BeNullOrEmpty
+        }
+
         It "Should accept MinimumVersion parameter" -Skip:(-not $script:GoAvailable) {
-            { & $script:ScriptPath -MinimumVersion "1.18" -JsonOutput 2>&1 } | Should -Not -Throw
+            { & $script:ScriptPath -MinimumVersion "1.20" -JsonOutput 2>&1 } | Should -Not -Throw
         }
 
         It "Should exit with code 1 when -ExitOnFailure is used and checks fail" {
@@ -294,7 +305,11 @@ Describe "verify-go.ps1 - Go Specific Checks" {
         $script:Content | Should -Match 'main\.go'
     }
 
-    It "Tests package main" {
+    It "Tests Go fmt.Println function" {
+        $script:Content | Should -Match 'fmt\.Println'
+    }
+
+    It "Tests Go package main declaration" {
         $script:Content | Should -Match 'package main'
     }
 
@@ -302,15 +317,19 @@ Describe "verify-go.ps1 - Go Specific Checks" {
         $script:Content | Should -Match 'go mod init'
     }
 
-    It "Validates executable creation" {
-        $script:Content | Should -Match 'testapp\.exe'
+    It "Validates executable creation (.exe)" {
+        $script:Content | Should -Match '\.exe'
     }
 
-    It "Tests Go test functionality" {
-        $script:Content | Should -Match 'testing'
+    It "Tests gofmt formatter" {
+        $script:Content | Should -Match 'gofmt'
     }
 
-    It "Creates test file with _test.go suffix" {
+    It "Tests go vet command" {
+        $script:Content | Should -Match 'go vet'
+    }
+
+    It "Creates test files with _test.go suffix" {
         $script:Content | Should -Match '_test\.go'
     }
 }
