@@ -214,8 +214,8 @@ function Test-Prerequisites {
 
     if ($errors.Count -gt 0) {
         Write-Log "Prerequisites validation failed:" "ERROR"
-        foreach ($error in $errors) {
-            Write-Log "  - $error" "ERROR"
+        foreach ($prereqError in $errors) {
+            Write-Log "  - $prereqError" "ERROR"
         }
         return $false
     }
