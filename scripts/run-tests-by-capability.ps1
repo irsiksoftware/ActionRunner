@@ -141,11 +141,11 @@ function Write-CapabilitySummary {
         }
 
         $status = if ($testResult.FailedCount -eq 0 -and $testResult.TotalCount -gt 0) {
-            "✓"
+            "[PASS]"
         } elseif ($passRate -ge 80) {
-            "⚠"
+            "[WARN]"
         } else {
-            "✗"
+            "[FAIL]"
         }
 
         $statusColor = if ($testResult.FailedCount -eq 0 -and $testResult.TotalCount -gt 0) {
