@@ -141,11 +141,11 @@ function Write-CapabilitySummary {
         }
 
         $status = if ($testResult.FailedCount -eq 0 -and $testResult.TotalCount -gt 0) {
-            "✓"
+            "Pass"
         } elseif ($passRate -ge 80) {
-            "⚠"
+            "Warn"
         } else {
-            "✗"
+            "Fail"
         }
 
         $statusColor = if ($testResult.FailedCount -eq 0 -and $testResult.TotalCount -gt 0) {
@@ -236,7 +236,7 @@ if ($Capability -eq 'All') {
     $config.Run.Path = $existingTests
     $config.Run.PassThru = $true
     $config.Output.Verbosity = if ($DetailedOutput) { 'Detailed' } else { 'Normal' }
-    $config.Run.Exit = $CI
+    $config.Run.Exit = $false
 
     $result = Invoke-Pester -Configuration $config
 
