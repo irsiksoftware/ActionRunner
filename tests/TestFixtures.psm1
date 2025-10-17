@@ -78,7 +78,7 @@ function Get-MockDockerContainerList {
             )
         }
         'Stopped' {
-            return @(
+            return ,@(
                 @{
                     ID = 'xyz789'
                     Image = 'ubuntu:latest'

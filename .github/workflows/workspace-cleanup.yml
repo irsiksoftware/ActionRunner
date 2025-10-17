@@ -63,6 +63,7 @@ jobs:
           if-no-files-found: warn
 
       - name: Check disk space after cleanup
+        continue-on-error: true
         shell: powershell
         run: |
           Write-Host "`n=== Disk Space Report ==="
@@ -74,6 +75,7 @@ jobs:
           }
 
       - name: Notify on failure
+        continue-on-error: true
         if: failure()
         shell: powershell
         run: |

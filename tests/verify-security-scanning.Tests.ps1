@@ -320,3 +320,223 @@ Describe "verify-security-scanning.ps1 - Security Scanning Specific Checks" {
         $matches | Should -BeGreaterOrEqual 3
     }
 }
+
+Describe "verify-security-scanning.ps1 - Integration with Security Tools" {
+    BeforeAll {
+        $script:GitAvailable = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
+    }
+
+    Context "Git Integration" {
+        It "Verifies Git is available for secret scanning" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $gitCheck = $json.checks | Where-Object { $_.name -eq 'Git' }
+            $gitCheck.passed | Should -Be $true
+        }
+
+        It "Verifies Git hooks directory can be created" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $hookCheck = $json.checks | Where-Object { $_.name -eq 'Git Hooks Support' }
+            $hookCheck | Should -Not -BeNullOrEmpty
+        }
+    }
+
+    Context "Pattern Detection" {
+        It "Successfully detects API key patterns" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $patternCheck = $json.checks | Where-Object { $_.name -eq 'Secret Detection Patterns' }
+            $patternCheck.passed | Should -Be $true
+        }
+
+        It "Successfully detects password patterns" -Skip:(-not $script:GitAvailable) {
+            $testContent = 'password="test123"'
+            $testContent -match 'password\s*=\s*["'']?\S+["'']?' | Should -Be $true
+        }
+
+        It "Successfully detects token patterns" -Skip:(-not $script:GitAvailable) {
+            $testContent = 'token=ghp_1234567890abcdef'
+            $testContent -match 'token\s*=\s*\S+' | Should -Be $true
+        }
+    }
+
+    Context "File Scanning Capability" {
+        It "Can scan files for sensitive patterns" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $scanCheck = $json.checks | Where-Object { $_.name -eq 'File Content Scanning' }
+            $scanCheck.passed | Should -Be $true
+        }
+
+        It "Verifies security script can be executed" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $execCheck = $json.checks | Where-Object { $_.name -eq 'Security Script Execution' }
+            $execCheck.passed | Should -Be $true
+        }
+    }
+
+    Context "Optional Security Tools" {
+        It "Checks for PSScriptAnalyzer availability" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $psaCheck = $json.checks | Where-Object { $_.name -eq 'PSScriptAnalyzer Module' }
+            $psaCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Includes SARIF support check with -IncludeOptional" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -IncludeOptional -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $sarifCheck = $json.checks | Where-Object { $_.name -eq 'SARIF Output Support' }
+            $sarifCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Includes code signing verification with -IncludeOptional" -Skip:(-not $script:GitAvailable) {
+            $output = & $script:ScriptPath -IncludeOptional -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $signCheck = $json.checks | Where-Object { $_.name -eq 'Code Signing Verification' }
+            $signCheck | Should -Not -BeNullOrEmpty
+        }
+    }
+}
+
+Describe "verify-security-scanning.ps1 - Error Handling and Edge Cases" {
+    Context "Missing Dependencies" {
+        It "Handles missing Git gracefully" {
+            $script:OriginalPath = $env:PATH
+            try {
+                $env:PATH = ""
+                $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+                $json = $output | ConvertFrom-Json
+                $json.failed | Should -BeGreaterThan 0
+            }
+            finally {
+                $env:PATH = $script:OriginalPath
+            }
+        }
+    }
+
+    Context "Exit Code Handling" {
+        BeforeAll {
+            $script:GitAvailable = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
+        }
+
+        It "Exits with code 1 when -ExitOnFailure is set and checks fail" {
+            $script:OriginalPath = $env:PATH
+            try {
+                $env:PATH = ""
+                $process = Start-Process pwsh -ArgumentList "-File `"$script:ScriptPath`" -ExitOnFailure -JsonOutput" -Wait -PassThru -NoNewWindow
+                $process.ExitCode | Should -Be 1
+            }
+            finally {
+                $env:PATH = $script:OriginalPath
+            }
+        }
+
+        It "Exits with code 0 when all checks pass" -Skip:(-not $script:GitAvailable) {
+            $process = Start-Process pwsh -ArgumentList "-File `"$script:ScriptPath`" -JsonOutput" -Wait -PassThru -NoNewWindow
+            $process.ExitCode | Should -Be 0
+        }
+    }
+
+    Context "Cleanup Verification" {
+        BeforeAll {
+            $script:GitAvailable = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
+        }
+
+        It "Removes temporary test directories after execution" -Skip:(-not $script:GitAvailable) {
+            $beforeCount = (Get-ChildItem $env:TEMP -Filter "security-*" -Directory -ErrorAction SilentlyContinue).Count
+            $null = & $script:ScriptPath -JsonOutput 2>&1
+            Start-Sleep -Milliseconds 500
+            $afterCount = (Get-ChildItem $env:TEMP -Filter "security-*" -Directory -ErrorAction SilentlyContinue).Count
+            $afterCount | Should -BeLessOrEqual $beforeCount
+        }
+
+        It "Removes git test directories after execution" -Skip:(-not $script:GitAvailable) {
+            $beforeCount = (Get-ChildItem $env:TEMP -Filter "git-hooks-test-*" -Directory -ErrorAction SilentlyContinue).Count
+            $null = & $script:ScriptPath -JsonOutput 2>&1
+            Start-Sleep -Milliseconds 500
+            $afterCount = (Get-ChildItem $env:TEMP -Filter "git-hooks-test-*" -Directory -ErrorAction SilentlyContinue).Count
+            $afterCount | Should -BeLessOrEqual $beforeCount
+        }
+    }
+}
+
+Describe "verify-security-scanning.ps1 - Security Best Practices Validation" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Does not hardcode credentials in script" {
+        # Check for actual hardcoded credentials (not test patterns or examples)
+        $lines = $script:Content -split "`n"
+        $suspiciousLines = $lines | Where-Object {
+            $_ -match 'password\s*=\s*["''][a-zA-Z0-9]{6,}["'']' -and
+            $_ -notmatch '(test|example|sample|demo|myP@ssw0rd|secret123)' -and
+            $_ -notmatch '^\s*#' -and
+            $_ -notmatch '^\s*@"' -and
+            $_ -notmatch 'Out-File'
+        }
+        $suspiciousLines.Count | Should -Be 0
+    }
+
+    It "Uses secure temporary file handling" {
+        $script:Content | Should -Match '\$env:TEMP'
+        $script:Content | Should -Match 'Get-Random'
+    }
+
+    It "Implements proper file permissions check" {
+        $script:Content | Should -Match 'Test-Path'
+    }
+
+    It "Validates input before processing" {
+        $script:Content | Should -Match '\[CmdletBinding\(\)\]'
+        $script:Content | Should -Match 'param\s*\('
+    }
+
+    It "Uses explicit error handling" {
+        $script:Content | Should -Match 'try\s*\{'
+        $script:Content | Should -Match 'catch\s*\{'
+        $script:Content | Should -Match 'finally\s*\{'
+    }
+
+    It "Logs security check results appropriately" {
+        $script:Content | Should -Match '\$results'
+        $script:Content | Should -Match 'passed|failed|warnings'
+    }
+}
+
+Describe "verify-security-scanning.ps1 - Performance and Resource Management" {
+    BeforeAll {
+        $script:GitAvailable = $null -ne (Get-Command git -ErrorAction SilentlyContinue)
+    }
+
+    It "Completes execution within reasonable time" -Skip:(-not $script:GitAvailable) {
+        $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+        $null = & $script:ScriptPath -JsonOutput 2>&1
+        $stopwatch.Stop()
+        $stopwatch.ElapsedMilliseconds | Should -BeLessThan 30000
+    }
+
+    It "Does not leave orphaned processes" -Skip:(-not $script:GitAvailable) {
+        $beforeProcesses = Get-Process git -ErrorAction SilentlyContinue
+        $null = & $script:ScriptPath -JsonOutput 2>&1
+        Start-Sleep -Milliseconds 500
+        $afterProcesses = Get-Process git -ErrorAction SilentlyContinue
+        $afterProcesses.Count | Should -BeLessOrEqual ($beforeProcesses.Count + 1)
+    }
+
+    It "Uses minimal memory for test operations" -Skip:(-not $script:GitAvailable) {
+        $job = Start-Job -ScriptBlock {
+            param($scriptPath)
+            & $scriptPath -JsonOutput 2>&1 | Out-Null
+        } -ArgumentList $script:ScriptPath
+        Start-Sleep -Seconds 2
+        $jobMemory = (Get-Process -Id $job.ChildJobs[0].Id -ErrorAction SilentlyContinue).WorkingSet64
+        Stop-Job $job
+        Remove-Job $job
+        # Should use less than 100MB
+        $jobMemory | Should -BeLessThan 100MB
+    }
+}

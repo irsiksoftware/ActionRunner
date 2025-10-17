@@ -1,0 +1,119 @@
+name: Rust Verification Tests
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  rust-verification:
+    name: Rust Toolchain Verification
+    runs-on: [self-hosted, windows]
+    continue-on-error: true
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Run Rust verification tests
+        shell: powershell
+        run: |
+          Write-Host "=== Running Rust Verification Tests ===" -ForegroundColor Cyan
+
+          # Run the verification script
+          & .\scripts\verify-rust.ps1 -JsonOutput | Tee-Object -Variable rustOutput
+
+          # Parse and display results
+          try {
+            $result = $rustOutput | ConvertFrom-Json
+
+            Write-Host "`n=== Rust Verification Results ===" -ForegroundColor Cyan
+            Write-Host "Timestamp: $($result.timestamp)" -ForegroundColor Gray
+            Write-Host "Passed: $($result.passed)" -ForegroundColor Green
+            Write-Host "Failed: $($result.failed)" -ForegroundColor Red
+            Write-Host "Warnings: $($result.warnings)" -ForegroundColor Yellow
+
+            Write-Host "`nDetailed Check Results:" -ForegroundColor Cyan
+            foreach ($check in $result.checks) {
+              $icon = switch ($check.severity) {
+                'Pass' { '✅' }
+                'Warning' { '⚠️' }
+                'Error' { '❌' }
+              }
+              $color = switch ($check.severity) {
+                'Pass' { 'Green' }
+                'Warning' { 'Yellow' }
+                'Error' { 'Red' }
+              }
+              Write-Host "  $icon $($check.name): $($check.actual)" -ForegroundColor $color
+            }
+
+            # Save results as artifact
+            $rustOutput | Out-File -FilePath "rust-verification-results.json" -Encoding UTF8
+
+            # Determine exit status
+            if ($result.failed -gt 0) {
+              Write-Host "`n❌ Rust verification failed with $($result.failed) error(s)" -ForegroundColor Red
+              exit 1
+            }
+            elseif ($result.warnings -gt 0) {
+              Write-Host "`n⚠️ Rust verification passed with $($result.warnings) warning(s)" -ForegroundColor Yellow
+              exit 0
+            }
+            else {
+              Write-Host "`n✅ Rust verification completed successfully!" -ForegroundColor Green
+              exit 0
+            }
+          }
+          catch {
+            Write-Host "`n❌ Failed to parse verification results: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "Raw output:" -ForegroundColor Yellow
+            Write-Host $rustOutput
+            exit 1
+          }
+
+      - name: Upload verification results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-verification-results
+          path: rust-verification-results.json
+          if-no-files-found: ignore
+
+      - name: Run Rust unit tests
+        if: always()
+        shell: powershell
+        run: |
+          Write-Host "`n=== Running Rust Unit Tests ===" -ForegroundColor Cyan
+
+          # Setup Pester
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+          # Run tests
+          $testResult = Invoke-Pester -Path ".\tests\verify-rust.Tests.ps1" -PassThru -Output Detailed
+
+          Write-Host "`n=== Test Results ===" -ForegroundColor Cyan
+          Write-Host "Total: $($testResult.TotalCount)" -ForegroundColor Gray
+          Write-Host "Passed: $($testResult.PassedCount)" -ForegroundColor Green
+          Write-Host "Failed: $($testResult.FailedCount)" -ForegroundColor Red
+          Write-Host "Skipped: $($testResult.SkippedCount)" -ForegroundColor Yellow
+
+          if ($testResult.FailedCount -gt 0) {
+            Write-Host "`n❌ Rust unit tests failed" -ForegroundColor Red
+            exit 1
+          }
+          else {
+            Write-Host "`n✅ All Rust unit tests passed!" -ForegroundColor Green
+            exit 0
+          }
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-test-results
+          path: test-results.xml
+          if-no-files-found: ignore

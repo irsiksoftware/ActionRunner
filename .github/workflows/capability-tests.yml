@@ -253,6 +253,7 @@ jobs:
           & .\scripts\run-tests-by-capability.ps1 -Capability All -CI
 
       - name: Generate Status Badge Data
+        continue-on-error: true
         shell: powershell
         run: |
           if (Test-Path test-capability-status.json) {

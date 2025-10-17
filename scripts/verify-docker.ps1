@@ -146,11 +146,39 @@ Test-Requirement `
     -Severity "Critical" `
     -Check {
         try {
-            $null = docker version 2>&1
+            $ErrorActionPreference = 'SilentlyContinue'
+            $versionOutput = docker version 2>&1
+            $ErrorActionPreference = 'Continue'
+
             $success = $LASTEXITCODE -eq 0
-            @{
-                Success = $success
-                Actual = if ($success) { "Running" } else { "Not running or not accessible" }
+
+            if (-not $success) {
+                # Enhanced error handling for common daemon issues
+                $errorMessage = "Not running or not accessible"
+
+                # Check if it's a permission issue
+                if ($versionOutput -match "permission denied|access.*denied") {
+                    $errorMessage = "Permission denied. Run as administrator or add user to docker group."
+                }
+                # Check if daemon is not started
+                elseif ($versionOutput -match "daemon.*not.*running|cannot connect") {
+                    $errorMessage = "Docker daemon is not running. Start Docker Desktop or dockerd service."
+                }
+                # Check for socket/pipe connection issues
+                elseif ($versionOutput -match "error during connect|Cannot connect to the Docker daemon") {
+                    $errorMessage = "Cannot connect to Docker daemon. Verify Docker service is running."
+                }
+
+                @{
+                    Success = $false
+                    Actual = $errorMessage
+                }
+            }
+            else {
+                @{
+                    Success = $true
+                    Actual = "Running"
+                }
             }
         }
         catch {
@@ -192,11 +220,33 @@ Test-Requirement `
     -Severity "Critical" `
     -Check {
         try {
-            $null = docker info 2>&1
+            $ErrorActionPreference = 'SilentlyContinue'
+            $infoOutput = docker info 2>&1
+            $ErrorActionPreference = 'Continue'
+
             $success = $LASTEXITCODE -eq 0
-            @{
-                Success = $success
-                Actual = if ($success) { "Accessible" } else { "Not accessible" }
+
+            if (-not $success) {
+                $errorMessage = "Not accessible"
+
+                # Provide specific error context
+                if ($infoOutput -match "permission denied|access.*denied") {
+                    $errorMessage = "Permission denied accessing Docker daemon"
+                }
+                elseif ($infoOutput -match "daemon.*not.*running|cannot connect") {
+                    $errorMessage = "Docker daemon is not responding"
+                }
+
+                @{
+                    Success = $false
+                    Actual = $errorMessage
+                }
+            }
+            else {
+                @{
+                    Success = $true
+                    Actual = "Accessible"
+                }
             }
         }
         catch {
@@ -212,12 +262,39 @@ Test-Requirement `
     -Severity "Critical" `
     -Check {
         try {
-            # Try to pull a tiny test image
-            $null = docker pull hello-world:latest 2>&1
+            $ErrorActionPreference = 'SilentlyContinue'
+            $pullOutput = docker pull hello-world:latest 2>&1
+            $ErrorActionPreference = 'Continue'
+
             $success = $LASTEXITCODE -eq 0
-            @{
-                Success = $success
-                Actual = if ($success) { "Can pull images" } else { "Pull failed" }
+
+            if (-not $success) {
+                $errorMessage = "Pull failed"
+
+                # Provide specific error context
+                if ($pullOutput -match "denied|unauthorized") {
+                    $errorMessage = "Registry authentication failed"
+                }
+                elseif ($pullOutput -match "timeout|timed out") {
+                    $errorMessage = "Network timeout connecting to registry"
+                }
+                elseif ($pullOutput -match "no such host|could not resolve") {
+                    $errorMessage = "DNS resolution failed for registry"
+                }
+                elseif ($pullOutput -match "connection refused") {
+                    $errorMessage = "Cannot connect to registry"
+                }
+
+                @{
+                    Success = $false
+                    Actual = $errorMessage
+                }
+            }
+            else {
+                @{
+                    Success = $true
+                    Actual = "Can pull images"
+                }
             }
         }
         catch {
@@ -233,11 +310,39 @@ Test-Requirement `
     -Severity "Critical" `
     -Check {
         try {
-            $output = docker run --rm hello-world 2>&1
+            $ErrorActionPreference = 'SilentlyContinue'
+            $runOutput = docker run --rm hello-world 2>&1
+            $ErrorActionPreference = 'Continue'
+
             $success = $LASTEXITCODE -eq 0
-            @{
-                Success = $success
-                Actual = if ($success) { "Containers can run" } else { "Run failed" }
+
+            if (-not $success) {
+                $errorMessage = "Run failed"
+
+                # Provide specific error context
+                if ($runOutput -match "permission denied|access.*denied") {
+                    $errorMessage = "Permission denied running containers"
+                }
+                elseif ($runOutput -match "image.*not found|unable to find") {
+                    $errorMessage = "Test image not available locally and pull failed"
+                }
+                elseif ($runOutput -match "oci runtime error") {
+                    $errorMessage = "Container runtime error"
+                }
+                elseif ($runOutput -match "driver.*failed") {
+                    $errorMessage = "Storage driver error"
+                }
+
+                @{
+                    Success = $false
+                    Actual = $errorMessage
+                }
+            }
+            else {
+                @{
+                    Success = $true
+                    Actual = "Containers can run"
+                }
             }
         }
         catch {
@@ -267,17 +372,39 @@ RUN echo "Build test successful"
                     Set-Content -Path (Join-Path $testDir "Dockerfile") -Value $dockerfile
 
                     # Build the image
-                    $null = docker build -t docker-verify-test:latest $testDir 2>&1
+                    $ErrorActionPreference = 'SilentlyContinue'
+                    $buildOutput = docker build -t docker-verify-test:latest $testDir 2>&1
+                    $ErrorActionPreference = 'Continue'
+
                     $buildSuccess = $LASTEXITCODE -eq 0
 
-                    # Clean up test image
-                    if ($buildSuccess) {
-                        docker rmi docker-verify-test:latest 2>&1 | Out-Null
-                    }
+                    if (-not $buildSuccess) {
+                        $errorMessage = "Build failed"
 
-                    @{
-                        Success = $buildSuccess
-                        Actual = if ($buildSuccess) { "Build successful" } else { "Build failed" }
+                        # Provide specific error context
+                        if ($buildOutput -match "no space left") {
+                            $errorMessage = "Insufficient disk space for build"
+                        }
+                        elseif ($buildOutput -match "denied|unauthorized") {
+                            $errorMessage = "Permission denied or authentication failed during build"
+                        }
+                        elseif ($buildOutput -match "network") {
+                            $errorMessage = "Network error during build"
+                        }
+
+                        @{
+                            Success = $false
+                            Actual = $errorMessage
+                        }
+                    }
+                    else {
+                        # Clean up test image
+                        docker rmi docker-verify-test:latest 2>&1 | Out-Null
+
+                        @{
+                            Success = $true
+                            Actual = "Build successful"
+                        }
                     }
                 }
                 finally {

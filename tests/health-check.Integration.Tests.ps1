@@ -81,6 +81,66 @@ Describe "health-check.ps1 Integration Tests" -Tag "Integration" {
             $json.Checks.DiskSpace.UsedPercentage | Should -BeGreaterThan ($expectedPercentage - 0.5)
             $json.Checks.DiskSpace.UsedPercentage | Should -BeLessThan ($expectedPercentage + 0.5)
         }
+
+        It "Should handle disk space threshold exactly at boundary" {
+            # Get current free space and set threshold to match
+            $actualDisk = Get-PSDrive -Name $script:testDrive
+            $currentFreeGB = [math]::Floor($actualDisk.Free / 1GB)
+
+            $output = & $script:scriptPath -OutputFormat JSON -DiskThresholdGB $currentFreeGB -WorkDirectory $script:testWorkDirectory
+            $json = $output | ConvertFrom-Json
+
+            # At boundary, should be healthy (>= threshold)
+            $json.Checks.DiskSpace.Status | Should -Be 'Healthy'
+        }
+
+        It "Should handle disk checks on different drives" {
+            # Create a temporary directory on the test drive
+            $tempDir = Join-Path ([System.IO.Path]::GetTempPath()) "health-test-$(Get-Random)"
+            New-Item -ItemType Directory -Path $tempDir -Force | Out-Null
+
+            try {
+                $output = & $script:scriptPath -OutputFormat JSON -DiskThresholdGB 1 -WorkDirectory $tempDir
+                $json = $output | ConvertFrom-Json
+
+                # Should report disk info for the drive containing the temp directory
+                $expectedDrive = (Get-Item $tempDir).PSDrive.Name
+                $json.Checks.DiskSpace.Drive | Should -Be "${expectedDrive}:"
+            } finally {
+                if (Test-Path $tempDir) {
+                    Remove-Item -Path $tempDir -Force -ErrorAction SilentlyContinue
+                }
+            }
+        }
+
+        It "Should return consistent disk measurements across multiple calls" {
+            $output1 = & $script:scriptPath -OutputFormat JSON -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory
+            $json1 = $output1 | ConvertFrom-Json
+
+            Start-Sleep -Milliseconds 100
+
+            $output2 = & $script:scriptPath -OutputFormat JSON -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory
+            $json2 = $output2 | ConvertFrom-Json
+
+            # Disk space should be relatively stable (within 1GB variance)
+            $diff = [math]::Abs($json1.Checks.DiskSpace.FreeSpaceGB - $json2.Checks.DiskSpace.FreeSpaceGB)
+            $diff | Should -BeLessThan 1
+        }
+
+        It "Should validate disk total is greater than free space" {
+            $output = & $script:scriptPath -OutputFormat JSON -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory
+            $json = $output | ConvertFrom-Json
+
+            $json.Checks.DiskSpace.TotalSpaceGB | Should -BeGreaterThan $json.Checks.DiskSpace.FreeSpaceGB
+        }
+
+        It "Should include threshold in disk space check output" {
+            $customThreshold = 75
+            $output = & $script:scriptPath -OutputFormat JSON -DiskThresholdGB $customThreshold -WorkDirectory $script:testWorkDirectory
+            $json = $output | ConvertFrom-Json
+
+            $json.Checks.DiskSpace.ThresholdGB | Should -Be $customThreshold
+        }
     }
 
     Context "System Resources Integration" {
@@ -353,7 +413,11 @@ Describe "health-check.ps1 Integration Tests" -Tag "Integration" {
         }
 
         It "Should produce readable text in Text mode" {
-            $output = & $script:scriptPath -OutputFormat Text -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory
+            $outputLines = @()
+            & $script:scriptPath -OutputFormat Text -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory *>&1 | ForEach-Object {
+                $outputLines += $_.ToString()
+            }
+            $output = $outputLines -join "`n"
 
             $output | Should -Not -BeNullOrEmpty
             $output | Should -Match 'GitHub Actions Runner Health Check'
@@ -361,7 +425,11 @@ Describe "health-check.ps1 Integration Tests" -Tag "Integration" {
         }
 
         It "Should include all check results in text output" {
-            $output = & $script:scriptPath -OutputFormat Text -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory
+            $outputLines = @()
+            & $script:scriptPath -OutputFormat Text -DiskThresholdGB 1 -WorkDirectory $script:testWorkDirectory *>&1 | ForEach-Object {
+                $outputLines += $_.ToString()
+            }
+            $output = $outputLines -join "`n"
 
             $output | Should -Match 'RunnerService'
             $output | Should -Match 'DiskSpace'

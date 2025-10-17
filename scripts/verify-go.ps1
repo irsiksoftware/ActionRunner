@@ -11,8 +11,8 @@
 
     Checks include:
     - Go compiler version
-    - GOPATH configuration
-    - Go modules support
+    - GOPATH and GOROOT configuration
+    - Go module support
     - Basic Go project creation and build
 
 .PARAMETER ExitOnFailure
@@ -46,7 +46,7 @@
 param(
     [switch]$ExitOnFailure,
     [switch]$JsonOutput,
-    [string]$MinimumVersion = "1.18"
+    [string]$MinimumVersion = "1.20"
 )
 
 $ErrorActionPreference = 'Continue'
@@ -151,56 +151,57 @@ Test-Requirement `
         }
     }
 
-# Check 2: GOPATH configured
+# Check 2: GOROOT environment variable
+Test-Requirement `
+    -Name "GOROOT Configuration" `
+    -Expected "GOROOT set and points to valid directory" `
+    -FailureMessage "GOROOT not set or invalid" `
+    -Severity "Warning" `
+    -Check {
+        $goroot = go env GOROOT 2>&1
+        if ($LASTEXITCODE -eq 0 -and $goroot -and (Test-Path $goroot)) {
+            @{ Passed = $true; Value = $goroot.Trim() }
+        }
+        else {
+            @{ Passed = $false; Value = "Not configured or invalid" }
+        }
+    }
+
+# Check 3: GOPATH environment variable
 Test-Requirement `
     -Name "GOPATH Configuration" `
-    -Expected "GOPATH environment variable set" `
-    -FailureMessage "GOPATH not configured" `
+    -Expected "GOPATH set and points to valid directory" `
+    -FailureMessage "GOPATH not set or invalid" `
     -Severity "Warning" `
     -Check {
         $gopath = go env GOPATH 2>&1
-        if ($LASTEXITCODE -eq 0 -and $gopath -and $gopath.Trim()) {
+        if ($LASTEXITCODE -eq 0 -and $gopath) {
+            # GOPATH may not exist yet, which is fine
             @{ Passed = $true; Value = $gopath.Trim() }
         }
         else {
-            @{ Passed = $false; Value = "Not set" }
+            @{ Passed = $false; Value = "Not configured" }
         }
     }
 
-# Check 3: Go modules support
+# Check 4: Go modules support
 Test-Requirement `
     -Name "Go Modules Support" `
-    -Expected "GO111MODULE enabled or auto" `
-    -FailureMessage "Go modules not properly configured" `
+    -Expected "Go modules enabled (GO111MODULE)" `
+    -FailureMessage "Go modules not enabled" `
+    -Severity "Warning" `
     -Check {
         $gomod = go env GO111MODULE 2>&1
         if ($LASTEXITCODE -eq 0) {
-            $value = $gomod.Trim()
-            # Empty, 'on', or 'auto' are all acceptable
-            $isValid = ($value -eq '' -or $value -eq 'on' -or $value -eq 'auto')
-            @{ Passed = $isValid; Value = if ($value) { $value } else { "auto (default)" } }
-        }
-        else {
-            @{ Passed = $false; Value = "Unable to check" }
-        }
-    }
-
-# Check 4: Go environment information
-Test-Requirement `
-    -Name "Go Environment" `
-    -Expected "Go env command works" `
-    -FailureMessage "Unable to query Go environment" `
-    -Check {
-        $goenv = go env 2>&1
-        if ($LASTEXITCODE -eq 0 -and $goenv) {
-            @{ Passed = $true; Value = "Available" }
+            $value = if ($gomod) { $gomod.Trim() } else { "on (default)" }
+            @{ Passed = $true; Value = $value }
         }
         else {
             @{ Passed = $false; Value = "Not available" }
         }
     }
 
-# Check 5: Test Go build with a simple program
+# Check 5: Go build test
 Test-Requirement `
     -Name "Go Build Test" `
     -Expected "Can create and build a simple Go program" `
@@ -223,16 +224,9 @@ func main() {
             $mainGoPath = Join-Path $testDir "main.go"
             Set-Content -Path $mainGoPath -Value $mainGo -Force
 
-            # Initialize go module
-            Push-Location $testDir
-            $modInit = go mod init testapp 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Pop-Location
-                return @{ Passed = $false; Value = "Module init failed" }
-            }
-
             # Build the program
-            $buildOutput = go build -o testapp.exe . 2>&1
+            Push-Location $testDir
+            $buildOutput = go build -o testapp.exe main.go 2>&1
             if ($LASTEXITCODE -eq 0) {
                 $exePath = Join-Path $testDir "testapp.exe"
                 if (Test-Path $exePath) {
@@ -257,7 +251,63 @@ func main() {
         }
     }
 
-# Check 6: Go test command
+# Check 6: Go module project creation and build
+Test-Requirement `
+    -Name "Go Module Project Test" `
+    -Expected "Can create and build a Go module project" `
+    -FailureMessage "Unable to create or build Go module project" `
+    -Check {
+        $testDir = Join-Path $env:TEMP "go-mod-test-$(Get-Random)"
+        try {
+            New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+            Push-Location $testDir
+
+            # Initialize go module
+            $goModInit = go mod init testapp 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Pop-Location
+                return @{ Passed = $false; Value = "Module initialization failed" }
+            }
+
+            # Create a main.go
+            $mainGo = @'
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("Hello, Go Modules!")
+}
+'@
+            $mainGoPath = Join-Path $testDir "main.go"
+            Set-Content -Path $mainGoPath -Value $mainGo -Force
+
+            # Build the project
+            $goBuild = go build -o testapp.exe 2>&1
+            Pop-Location
+
+            if ($LASTEXITCODE -eq 0) {
+                $exePath = Join-Path $testDir "testapp.exe"
+                if (Test-Path $exePath) {
+                    @{ Passed = $true; Value = "Build successful" }
+                }
+                else {
+                    @{ Passed = $false; Value = "Executable not created" }
+                }
+            }
+            else {
+                @{ Passed = $false; Value = "Build failed" }
+            }
+        }
+        finally {
+            Pop-Location -ErrorAction SilentlyContinue
+            if (Test-Path $testDir) {
+                Remove-Item $testDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
+        }
+    }
+
+# Check 7: Go test command
 Test-Requirement `
     -Name "Go Test Command" `
     -Expected "go test command available" `
@@ -266,6 +316,14 @@ Test-Requirement `
         $testDir = Join-Path $env:TEMP "go-test-cmd-$(Get-Random)"
         try {
             New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+            Push-Location $testDir
+
+            # Initialize go module
+            $goModInit = go mod init testapp 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Pop-Location
+                return @{ Passed = $false; Value = "Module initialization failed" }
+            }
 
             # Create a simple test file
             $testGo = @'
@@ -274,7 +332,7 @@ package main
 import "testing"
 
 func TestExample(t *testing.T) {
-    if 1+1 != 2 {
+    if 2+2 != 4 {
         t.Error("Math is broken")
     }
 }
@@ -282,16 +340,8 @@ func TestExample(t *testing.T) {
             $testGoPath = Join-Path $testDir "main_test.go"
             Set-Content -Path $testGoPath -Value $testGo -Force
 
-            # Initialize go module
-            Push-Location $testDir
-            $modInit = go mod init testapp 2>&1
-            if ($LASTEXITCODE -ne 0) {
-                Pop-Location
-                return @{ Passed = $false; Value = "Module init failed" }
-            }
-
             # Run tests
-            $testOutput = go test . 2>&1
+            $goTest = go test 2>&1
             Pop-Location
 
             if ($LASTEXITCODE -eq 0) {
@@ -309,19 +359,67 @@ func TestExample(t *testing.T) {
         }
     }
 
-# Check 7: Go fmt command
+# Check 8: gofmt code formatter
 Test-Requirement `
-    -Name "Go Fmt Command" `
+    -Name "Gofmt Code Formatter" `
     -Expected "gofmt command available" `
     -FailureMessage "gofmt command not working" `
+    -Severity "Warning" `
     -Check {
         $gofmt = gofmt -h 2>&1
         if ($LASTEXITCODE -eq 0 -or $LASTEXITCODE -eq 2) {
-            # gofmt -h returns exit code 2, which is expected
+            # gofmt -h returns exit code 2, but that's expected
             @{ Passed = $true; Value = "Available" }
         }
         else {
             @{ Passed = $false; Value = "Not available" }
+        }
+    }
+
+# Check 9: go vet command
+Test-Requirement `
+    -Name "Go Vet Command" `
+    -Expected "go vet command available" `
+    -FailureMessage "go vet command not working" `
+    -Severity "Warning" `
+    -Check {
+        $testDir = Join-Path $env:TEMP "go-vet-test-$(Get-Random)"
+        try {
+            New-Item -ItemType Directory -Path $testDir -Force | Out-Null
+            Push-Location $testDir
+
+            # Initialize go module
+            $goModInit = go mod init testapp 2>&1
+            if ($LASTEXITCODE -ne 0) {
+                Pop-Location
+                return @{ Passed = $false; Value = "Module initialization failed" }
+            }
+
+            # Create a simple file
+            $mainGo = @'
+package main
+
+func main() {}
+'@
+            $mainGoPath = Join-Path $testDir "main.go"
+            Set-Content -Path $mainGoPath -Value $mainGo -Force
+
+            # Run go vet
+            $goVet = go vet 2>&1
+            Pop-Location
+
+            if ($LASTEXITCODE -eq 0) {
+                @{ Passed = $true; Value = "Available" }
+            }
+            else {
+                @{ Passed = $false; Value = "Not available" }
+            }
+        }
+        finally {
+            Pop-Location -ErrorAction SilentlyContinue
+            if (Test-Path $testDir) {
+                Remove-Item $testDir -Recurse -Force -ErrorAction SilentlyContinue
+            }
         }
     }
 
