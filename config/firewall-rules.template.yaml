@@ -1,0 +1,135 @@
+# GitHub Actions Runner Firewall Rules Template
+# Copy and customize this template for your environment
+
+rules:
+  # GitHub Services - Required for runner communication
+  - name: "GitHub API"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "api.github.com"
+    remote_port: "443"
+    action: "Allow"
+    description: "Required for GitHub API access"
+
+  - name: "GitHub Objects Storage"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "*.githubusercontent.com"
+    remote_port: "443"
+    action: "Allow"
+    description: "Required for accessing GitHub resources"
+
+  - name: "GitHub Actions Services"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "*.actions.githubusercontent.com"
+    remote_port: "443"
+    action: "Allow"
+    description: "Required for GitHub Actions workflow execution"
+
+  # Package Managers - Common dependency sources
+  - name: "NPM Registry"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "registry.npmjs.org"
+    remote_port: "443"
+    action: "Allow"
+    description: "Node.js package manager"
+
+  - name: "PyPI"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "pypi.org"
+    remote_port: "443"
+    action: "Allow"
+    description: "Python package index"
+
+  - name: "NuGet"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "api.nuget.org"
+    remote_port: "443"
+    action: "Allow"
+    description: ".NET package manager"
+
+  # Container Registries
+  - name: "Docker Hub"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "registry-1.docker.io"
+    remote_port: "443"
+    action: "Allow"
+    description: "Docker container registry"
+
+  - name: "GitHub Container Registry"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "ghcr.io"
+    remote_port: "443"
+    action: "Allow"
+    description: "GitHub container registry"
+
+  # Local Network Access
+  - name: "Local Network Inbound"
+    direction: "Inbound"
+    protocol: "TCP"
+    remote_address: "192.168.1.0/24"
+    remote_port: "Any"
+    action: "Allow"
+    description: "Allow access from local network"
+
+  - name: "Internal Network"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "10.0.0.0/8"
+    remote_port: "Any"
+    action: "Allow"
+    description: "Allow access to internal network"
+
+  # DNS
+  - name: "DNS UDP"
+    direction: "Outbound"
+    protocol: "UDP"
+    remote_address: "Any"
+    remote_port: "53"
+    action: "Allow"
+    description: "DNS resolution"
+
+  - name: "DNS TCP"
+    direction: "Outbound"
+    protocol: "TCP"
+    remote_address: "Any"
+    remote_port: "53"
+    action: "Allow"
+    description: "DNS resolution over TCP"
+
+  # Block Rules (optional - customize based on security requirements)
+  # - name: "Block External RDP"
+  #   direction: "Inbound"
+  #   protocol: "TCP"
+  #   remote_address: "Any"
+  #   remote_port: "3389"
+  #   action: "Block"
+  #   description: "Block external RDP access"
+
+# Logging Configuration
+logging:
+  enabled: true
+  log_dropped_packets: true
+  log_successful_connections: false
+  log_path: "C:\\actions-runner\\logs\\firewall.log"
+  max_log_size_mb: 100
+
+# Default Policy
+default_policy:
+  inbound: "Block"
+  outbound: "Allow"
+
+# Network Profiles
+profiles:
+  - name: "Domain"
+    enabled: true
+  - name: "Private"
+    enabled: true
+  - name: "Public"
+    enabled: false

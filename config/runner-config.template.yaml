@@ -1,0 +1,135 @@
+# GitHub Actions Self-Hosted Runner Configuration Template
+# Copy and customize this template for your environment
+
+runner:
+  name: "action-runner-default"  # CHANGE THIS: Unique name for your runner
+  labels:
+    - "self-hosted"
+    - "Windows"
+    - "X64"
+    # Add custom labels as needed:
+    # - "production"
+    # - "staging"
+    # - "gpu"
+    # - "unity"
+  group: "Default"  # CHANGE THIS: Runner group name
+
+paths:
+  runner_home: "C:\\actions-runner"  # CHANGE THIS: Base directory for runner
+  work_directory: "C:\\actions-runner\\_work"
+  temp_directory: "C:\\Temp"
+  log_directory: "C:\\actions-runner\\logs"
+
+resources:
+  max_concurrent_jobs: 3  # CHANGE THIS: Number of jobs to run simultaneously
+  cpu:
+    max_cores: 8  # CHANGE THIS: Maximum CPU cores to use (0 = unlimited)
+    affinity: ""  # Optional: CPU affinity mask
+  memory:
+    max_memory_gb: 16  # CHANGE THIS: Maximum memory in GB (0 = unlimited)
+    reserved_memory_gb: 4  # Memory to keep available for system
+  disk:
+    min_free_space_gb: 100  # CHANGE THIS: Minimum free disk space before cleanup
+    auto_cleanup: true
+    cleanup_per_job: true
+
+timeouts:
+  job_timeout_minutes: 360  # Maximum job execution time (6 hours)
+  queue_timeout_minutes: 30  # Maximum time in queue before cancellation
+  step_timeout_minutes: 60  # Maximum individual step execution time
+
+environment:
+  system:
+    # CHANGE THESE: Adjust paths based on your installations
+    DOTNET_ROOT: "C:\\Program Files\\dotnet"
+    JAVA_HOME: "C:\\Program Files\\Java\\jdk-17"
+    PYTHON_PATH: "C:\\Python311"
+    NODE_PATH: "C:\\Program Files\\nodejs"
+    DOCKER_HOST: "npipe:////./pipe/docker_engine"
+  runner:
+    ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT: "1"
+    RUNNER_ALLOW_RUNASROOT: "0"
+  custom: {}  # Add your custom environment variables here
+
+gpu:
+  enabled: false  # CHANGE THIS: Set to true if GPU support is needed
+  # cuda_version: "12.0"
+  # vram:
+  #   reserved_vram_gb: 2
+  #   max_vram_gb: 0
+
+unity:
+  enabled: false  # CHANGE THIS: Set to true if Unity builds are needed
+  # version: "2022.3.0f1"
+  # license_type: "Professional"
+  # build_targets:
+  #   - "Windows"
+  #   - "Android"
+  #   - "iOS"
+
+docker:
+  enabled: true  # CHANGE THIS: Set to false if Docker is not needed
+  socket_path: "npipe:////./pipe/docker_engine"
+  isolation_mode: "process"  # Options: process, hyperv
+  container_limits:
+    memory_gb: 8
+    cpu_cores: 4
+  auto_cleanup_containers: true
+  auto_cleanup_images: true
+
+monitoring:
+  enabled: true
+  health_check_interval: 300  # Seconds between health checks
+  alert_webhook: ""  # CHANGE THIS: Webhook URL for alerts (optional)
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: true
+    high_memory_usage: true
+    job_failure: false
+  thresholds:
+    cpu_warning_percent: 80
+    cpu_critical_percent: 95
+    memory_warning_percent: 85
+    memory_critical_percent: 95
+    disk_warning_gb: 150
+    disk_critical_gb: 100
+
+security:
+  firewall_enabled: true
+  allowed_networks:
+    - "192.168.1.0/24"  # CHANGE THIS: Your local network
+    - "10.0.0.0/8"      # CHANGE THIS: Your internal network
+  block_external_access: false
+  audit_logging: true
+  audit_log_path: "C:\\actions-runner\\logs\\audit.log"
+
+logging:
+  level: "info"  # Options: debug, info, warn, error
+  retention_days: 30
+  max_file_size_mb: 100
+  rotation_enabled: true
+  console_output: true
+
+maintenance:
+  auto_update: true
+  update_check_interval_hours: 24
+  backup_before_update: true
+  maintenance_window: "0 2 * * 0"  # CHANGE THIS: Cron format (2 AM every Sunday)
+
+webhooks:
+  endpoints:
+    - name: "notifications"
+      url: ""  # CHANGE THIS: Your webhook URL (optional)
+      events:
+        - runner_stopped
+        - job_failed
+        - health_check_failed
+
+features:
+  experimental:
+    new_job_engine: false  # Enable experimental job execution engine
+    job_queueing: true     # Enable job queueing
+  disabled:
+    artifact_upload: false  # Disable artifact uploads if not needed
+    cache: false           # Disable caching if not needed
