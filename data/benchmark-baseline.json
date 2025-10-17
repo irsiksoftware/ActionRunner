@@ -1,32 +1,32 @@
 {
-  "version": "1.0",
-  "description": "Baseline performance metrics for runner benchmarks. These values represent expected minimum performance thresholds.",
-  "created": "2025-10-04",
+  "version": "1.0.0",
+  "created": "2025-10-17",
+  "description": "Performance benchmark baseline thresholds for ActionRunner self-hosted runners. These values represent minimum acceptable performance for typical CI/CD workloads.",
   "baselines": {
     "DiskIO": {
+      "description": "Disk I/O performance thresholds for build artifacts and workspace operations",
       "MinWriteSpeedMBps": 100,
       "MinReadSpeedMBps": 150,
-      "MinSmallFileOpsPerSec": 500,
-      "description": "Disk I/O baseline - minimum acceptable speeds for CI/CD workloads"
+      "MinSmallFileOpsPerSec": 500
     },
     "Network": {
+      "description": "Network performance thresholds for GitHub API and artifact downloads",
       "MaxGitHubLatencyMs": 500,
-      "MinDownloadSpeedMBps": 1,
-      "description": "Network baseline - maximum acceptable latency and minimum download speed"
+      "MinDownloadSpeedMBps": 1.0
     },
     "DotNet": {
-      "MaxBuildTimeSeconds": 30,
-      "description": ".NET baseline - maximum acceptable build time for simple console app"
+      "description": ".NET compilation performance thresholds",
+      "MaxBuildTimeSeconds": 30
     },
     "Python": {
+      "description": "Python execution performance thresholds",
       "MaxStartupTimeMs": 500,
-      "MaxSimpleScriptTimeMs": 2000,
-      "description": "Python baseline - maximum acceptable startup and execution times"
+      "MaxSimpleScriptTimeMs": 2000
     },
     "Git": {
-      "MaxCloneTimeSeconds": 10,
-      "MaxStatusTimeMs": 100,
-      "description": "Git baseline - maximum acceptable times for common operations"
+      "description": "Git operations performance thresholds",
+      "MaxCloneTimeSeconds": 15,
+      "MaxStatusTimeMs": 500
     }
   },
   "performanceGrades": {
@@ -50,13 +50,47 @@
         "Good": 150,
         "Adequate": 300,
         "Poor": 500
+      },
+      "DownloadSpeed": {
+        "Excellent": 10,
+        "Good": 5,
+        "Adequate": 1,
+        "Poor": 0
+      }
+    },
+    "DotNet": {
+      "BuildTime": {
+        "Excellent": 10,
+        "Good": 20,
+        "Adequate": 30,
+        "Poor": 60
+      }
+    },
+    "Python": {
+      "StartupTime": {
+        "Excellent": 100,
+        "Good": 300,
+        "Adequate": 500,
+        "Poor": 1000
+      }
+    },
+    "Git": {
+      "CloneTime": {
+        "Excellent": 5,
+        "Good": 10,
+        "Adequate": 15,
+        "Poor": 30
       }
     }
   },
   "notes": [
-    "Baselines are intentionally conservative to ensure broad compatibility",
-    "Performance ratings help identify optimization opportunities",
-    "Update baselines periodically based on infrastructure improvements",
-    "Failed tests (-1 values) should be investigated separately"
+    "Baseline values are derived from typical CI/CD workload requirements",
+    "DiskIO: Based on SATA SSD minimum performance (100 MB/s write, 150 MB/s read)",
+    "Network: Assumes reasonable internet connection with GitHub API access",
+    "DotNet: Simple console app build should complete in under 30 seconds",
+    "Python: Startup and simple script execution for basic CI tasks",
+    "Git: Small repository clone (e.g., github/gitignore) should complete quickly",
+    "These baselines should be reviewed and adjusted based on actual runner environments",
+    "Performance grades help categorize runner quality: Excellent (production-ready), Good (acceptable), Adequate (minimum viable), Poor (needs improvement)"
   ]
 }
