@@ -96,7 +96,7 @@ Describe "verify-cmake.ps1 - Function Definitions" {
     }
 }
 
-Describe "verify-cmake.ps1 - Content Checks" {
+Describe "verify-cmake.ps1 - CMake Content Checks" {
     BeforeAll {
         $script:Content = Get-Content $script:ScriptPath -Raw
     }
@@ -106,31 +106,31 @@ Describe "verify-cmake.ps1 - Content Checks" {
     }
 
     It "Contains C++ compiler check" {
-        $script:Content | Should -Match 'g\+\+|clang\+\+|cl'
+        $script:Content | Should -Match 'C\+\+ Compiler'
     }
 
     It "Contains C compiler check" {
-        $script:Content | Should -Match 'gcc|clang|cl'
+        $script:Content | Should -Match 'C Compiler'
     }
 
     It "Contains build system check" {
-        $script:Content | Should -Match 'ninja|make|msbuild'
+        $script:Content | Should -Match 'Build System'
     }
 
     It "Contains CMake generators check" {
-        $script:Content | Should -Match 'Generators'
+        $script:Content | Should -Match 'CMake Generators'
     }
 
-    It "Contains CMakeLists.txt creation" {
-        $script:Content | Should -Match 'CMakeLists\.txt'
+    It "Contains project configuration check" {
+        $script:Content | Should -Match 'CMake Project Configuration'
     }
 
-    It "Contains cmake configure command" {
-        $script:Content | Should -Match 'cmake \.\.'
+    It "Contains build test check" {
+        $script:Content | Should -Match 'CMake Build Test'
     }
 
-    It "Contains cmake build command" {
-        $script:Content | Should -Match 'cmake --build'
+    It "Contains library test check" {
+        $script:Content | Should -Match 'CMake Library Test'
     }
 
     It "Uses proper error handling" {
@@ -139,15 +139,6 @@ Describe "verify-cmake.ps1 - Content Checks" {
 
     It "Includes cleanup logic for temporary directories" {
         $script:Content | Should -Match 'Remove-Item.*-Recurse.*-Force'
-    }
-
-    It "Has JSON output support" {
-        $script:Content | Should -Match 'ConvertTo-Json'
-    }
-
-    It "Has proper exit code handling" {
-        $script:Content | Should -Match 'exit 1'
-        $script:Content | Should -Match 'exit 0'
     }
 }
 
@@ -224,11 +215,39 @@ Describe "verify-cmake.ps1 - Execution Tests" {
             $buildCheck | Should -Not -BeNullOrEmpty
         }
 
+        It "Should perform C compiler check" -Skip:(-not $script:CMakeAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $compilerCheck = $json.checks | Where-Object { $_.name -eq 'C Compiler' }
+            $compilerCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should perform CMake generators check" -Skip:(-not $script:CMakeAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $generatorsCheck = $json.checks | Where-Object { $_.name -eq 'CMake Generators' }
+            $generatorsCheck | Should -Not -BeNullOrEmpty
+        }
+
         It "Should perform CMake project configuration test" -Skip:(-not $script:CMakeAvailable) {
             $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
             $json = $output | ConvertFrom-Json
             $configCheck = $json.checks | Where-Object { $_.name -eq 'CMake Project Configuration' }
             $configCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should perform build test check" -Skip:(-not $script:CMakeAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $buildCheck = $json.checks | Where-Object { $_.name -eq 'CMake Build Test' }
+            $buildCheck | Should -Not -BeNullOrEmpty
+        }
+
+        It "Should perform library test check" -Skip:(-not $script:CMakeAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $libCheck = $json.checks | Where-Object { $_.name -eq 'CMake Library Test' }
+            $libCheck | Should -Not -BeNullOrEmpty
         }
 
         It "Should accept MinimumVersion parameter" -Skip:(-not $script:CMakeAvailable) {
@@ -243,6 +262,10 @@ Describe "verify-cmake.ps1 - Execution Tests" {
     }
 
     Context "Output Formatting" {
+        BeforeAll {
+            $script:CMakeAvailable = $null -ne (Get-Command cmake -ErrorAction SilentlyContinue)
+        }
+
         It "Should display checkmarks for passed tests (non-JSON mode)" -Skip:(-not $script:CMakeAvailable) {
             $output = & $script:ScriptPath 2>&1 | Out-String
             $output | Should -Match '✅|✓|PASS'
@@ -285,45 +308,123 @@ Describe "verify-cmake.ps1 - Security and Best Practices" {
     }
 }
 
-Describe "verify-cmake.ps1 - CMake Specific Checks" {
+Describe "verify-cmake.ps1 - CMake Project Files" {
     BeforeAll {
         $script:Content = Get-Content $script:ScriptPath -Raw
     }
 
-    It "Creates a CMakeLists.txt file for testing" {
-        $script:Content | Should -Match 'cmake_minimum_required'
+    It "Creates CMakeLists.txt for testing" {
+        $script:Content | Should -Match 'CMakeLists\.txt'
     }
 
-    It "Tests CMake project structure" {
+    It "Creates C++ source files for testing" {
         $script:Content | Should -Match 'main\.cpp'
     }
 
-    It "Creates C++ source files" {
-        $script:Content | Should -Match '\.cpp'
+    It "Contains cmake_minimum_required directive" {
+        $script:Content | Should -Match 'cmake_minimum_required'
     }
 
-    It "Tests executable creation" {
-        $script:Content | Should -Match '\.exe|add_executable'
-    }
-
-    It "Tests library creation" {
-        $script:Content | Should -Match 'add_library'
-    }
-
-    It "Tests target linking" {
-        $script:Content | Should -Match 'target_link_libraries'
-    }
-
-    It "Uses proper CMake project structure" {
+    It "Contains project directive" {
         $script:Content | Should -Match 'project\('
+    }
+
+    It "Contains add_executable directive" {
         $script:Content | Should -Match 'add_executable'
     }
 
-    It "Checks for CMakeCache.txt" {
-        $script:Content | Should -Match 'CMakeCache\.txt'
+    It "Contains add_library directive" {
+        $script:Content | Should -Match 'add_library'
     }
 
-    It "Tests library file creation" {
-        $script:Content | Should -Match 'libmylib\.a|mylib\.lib'
+    It "Contains target_link_libraries directive" {
+        $script:Content | Should -Match 'target_link_libraries'
+    }
+
+    It "Creates build directory" {
+        $script:Content | Should -Match 'build'
+    }
+
+    It "Verifies CMakeCache.txt creation" {
+        $script:Content | Should -Match 'CMakeCache\.txt'
+    }
+}
+
+Describe "verify-cmake.ps1 - Compiler Detection" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Checks for MSVC compiler" {
+        $script:Content | Should -Match 'MSVC|cl'
+    }
+
+    It "Checks for GCC compiler" {
+        $script:Content | Should -Match 'GCC|g\+\+'
+    }
+
+    It "Checks for Clang compiler" {
+        $script:Content | Should -Match 'Clang|clang'
+    }
+}
+
+Describe "verify-cmake.ps1 - Build System Detection" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Checks for Ninja build system" {
+        $script:Content | Should -Match 'Ninja'
+    }
+
+    It "Checks for Make build system" {
+        $script:Content | Should -Match 'Make'
+    }
+
+    It "Checks for MSBuild build system" {
+        $script:Content | Should -Match 'MSBuild'
+    }
+}
+
+Describe "verify-cmake.ps1 - CMake Specific Functionality" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Tests CMake project with executable" {
+        $script:Content | Should -Match 'add_executable'
+    }
+
+    It "Tests CMake project with static library" {
+        $script:Content | Should -Match 'add_library.*STATIC'
+    }
+
+    It "Tests linking libraries to executables" {
+        $script:Content | Should -Match 'target_link_libraries'
+    }
+
+    It "Checks for built executable files" {
+        $script:Content | Should -Match '\.exe|hello'
+    }
+
+    It "Checks for built library files" {
+        $script:Content | Should -Match '\.a|\.lib'
+    }
+
+    It "Uses cmake --build command" {
+        $script:Content | Should -Match 'cmake --build'
+    }
+
+    It "Supports multiple build configurations" {
+        $script:Content | Should -Match 'Debug|Release'
+    }
+
+    It "Has JSON output support" {
+        $script:Content | Should -Match 'ConvertTo-Json'
+    }
+
+    It "Has proper exit code handling" {
+        $script:Content | Should -Match 'exit 1'
+        $script:Content | Should -Match 'exit 0'
     }
 }
