@@ -294,4 +294,5 @@ function Main {
     Show-Summary
 }
 
+# Call Main function to execute the script
 Main
