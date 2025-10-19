@@ -136,8 +136,8 @@ Test-Requirement `
         $dotnetVersion = dotnet --version 2>&1
         if ($LASTEXITCODE -eq 0 -and $dotnetVersion) {
             $version = $dotnetVersion.Trim()
-            $majorMinor = [version]($version -split '-')[0]
-            $minVersion = [version]$MinimumVersion
+            $majorMinor = [System.Version]($version -split '-')[0]
+            $minVersion = [System.Version]$MinimumVersion
             @{ Passed = ($majorMinor -ge $minVersion); Value = $version }
         }
         else {
