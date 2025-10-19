@@ -45,6 +45,7 @@ $CapabilityBuckets = @{
         Tests = @(
             'verify-jesus-environment.Tests.ps1'  # Will be tagged for Python/Node.js checks
             'install-runner-devstack.Tests.ps1'   # Python, Node.js, .NET installation
+            'verify-aspnetcore.Tests.ps1'         # ASP.NET Core verification tests
         )
         Icon = '🌐'
     }
