@@ -30,7 +30,7 @@ jobs:
           Import-Module Pester -MinimumVersion 5.0 -Force
 
           $pesterVersion = (Get-Module Pester).Version
-          Write-Host "✓ Pester $pesterVersion installed" -ForegroundColor Green
+          Write-Host "$([char]0x2713) Pester $pesterVersion installed" -ForegroundColor Green
 
       - name: Pre-workflow health check
         shell: powershell
@@ -42,7 +42,7 @@ jobs:
 
             if ($LASTEXITCODE -eq 0) {
               $healthJson = $health | ConvertFrom-Json
-              Write-Host "✓ Health Status: $($healthJson.OverallHealth)" -ForegroundColor Green
+              Write-Host "$([char]0x2713) Health Status: $($healthJson.OverallHealth)" -ForegroundColor Green
               Write-Host "  - Disk Space: $($healthJson.Checks.DiskSpace.FreeSpaceGB) GB available" -ForegroundColor Gray
               Write-Host "  - CPU Usage: $($healthJson.Checks.SystemResources.CPUUsagePercentage)%" -ForegroundColor Gray
               Write-Host "  - RAM Usage: $($healthJson.Checks.SystemResources.RAMUsagePercentage)%" -ForegroundColor Gray
@@ -135,10 +135,10 @@ jobs:
             Write-Host "Skipped: $($result.SkippedCount)" -ForegroundColor Yellow
 
             if ($result.FailedCount -gt 0) {
-              Write-Host "`n✗ E2E tests failed" -ForegroundColor Red
+              Write-Host "`n$([char]0x2717) E2E tests failed" -ForegroundColor Red
               exit 1
             } else {
-              Write-Host "`n✓ All E2E tests passed!" -ForegroundColor Green
+              Write-Host "`n$([char]0x2713) All E2E tests passed!" -ForegroundColor Green
             }
           } else {
             Write-Error "E2E test file not found: $testPath"
@@ -155,15 +155,16 @@ jobs:
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 
           # Simulate build output
-          @"
+          $buildLog = @"
 Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 =================================
-✓ Compilation successful
-✓ Tests passed
-✓ Artifacts generated
-"@ | Out-File -FilePath (Join-Path $buildDir "build.log")
+Compilation successful
+Tests passed
+Artifacts generated
+"@
+          $buildLog | Out-File -FilePath (Join-Path $buildDir "build.log")
 
-          Write-Host "✓ Build completed successfully" -ForegroundColor Green
+          Write-Host "$([char]0x2713) Build completed successfully" -ForegroundColor Green
           Write-Host "  Build directory: $buildDir" -ForegroundColor Gray
 
           # Cleanup
@@ -192,7 +193,7 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 "@
           $testResults | Out-File -FilePath (Join-Path $testDir "test-results.xml")
 
-          Write-Host "✓ All tests passed (5/5)" -ForegroundColor Green
+          Write-Host "$([char]0x2713) All tests passed (5/5)" -ForegroundColor Green
 
           # Cleanup
           Remove-Item -Path $testDir -Recurse -Force -ErrorAction SilentlyContinue
@@ -214,9 +215,9 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
           foreach ($var in $requiredVars) {
             $value = [Environment]::GetEnvironmentVariable($var)
             if ($value) {
-              Write-Host "✓ $var" -ForegroundColor Green
+              Write-Host "$([char]0x2713) $var" -ForegroundColor Green
             } else {
-              Write-Host "✗ $var (not set)" -ForegroundColor Yellow
+              Write-Host "$([char]0x2717) $var (not set)" -ForegroundColor Yellow
             }
           }
 
@@ -239,7 +240,7 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
             if ($LASTEXITCODE -eq 0) {
               $healthJson = $health | ConvertFrom-Json
-              Write-Host "✓ Final Health Status: $($healthJson.OverallHealth)" -ForegroundColor Green
+              Write-Host "$([char]0x2713) Final Health Status: $($healthJson.OverallHealth)" -ForegroundColor Green
 
               if ($healthJson.OverallHealth -eq 'Unhealthy') {
                 Write-Warning "System health degraded during workflow execution"
@@ -265,7 +266,7 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
           if (Test-Path .\scripts\cleanup-workspace.ps1) {
             & .\scripts\cleanup-workspace.ps1 -Force -Verbose
-            Write-Host "✓ Workspace cleaned" -ForegroundColor Green
+            Write-Host "$([char]0x2713) Workspace cleaned" -ForegroundColor Green
           } else {
             Write-Host "Cleanup script not found, performing basic cleanup..." -ForegroundColor Yellow
 
@@ -297,10 +298,10 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
           echo ""
 
           echo "=== Available Tools ==="
-          command -v git && echo "✓ Git: $(git --version)"
-          command -v docker && echo "✓ Docker: $(docker --version)"
-          command -v python3 && echo "✓ Python: $(python3 --version)"
-          command -v node && echo "✓ Node.js: $(node --version)"
+          command -v git && echo "$(printf '\u2713') Git: $(git --version)"
+          command -v docker && echo "$(printf '\u2713') Docker: $(docker --version)"
+          command -v python3 && echo "$(printf '\u2713') Python: $(python3 --version)"
+          command -v node && echo "$(printf '\u2713') Node.js: $(node --version)"
 
       - name: Run basic integration test
         shell: bash
@@ -309,14 +310,14 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
           # Test runner environment
           if [ -n "$RUNNER_WORKSPACE" ]; then
-            echo "✓ Runner workspace: $RUNNER_WORKSPACE"
+            echo "$(printf '\u2713') Runner workspace: $RUNNER_WORKSPACE"
           fi
 
           if [ -n "$GITHUB_WORKSPACE" ]; then
-            echo "✓ GitHub workspace: $GITHUB_WORKSPACE"
+            echo "$(printf '\u2713') GitHub workspace: $GITHUB_WORKSPACE"
           fi
 
-          echo "✓ Linux E2E test completed"
+          echo "$(printf '\u2713') Linux E2E test completed"
 
   # Summary job
   e2e-summary:
@@ -337,28 +338,28 @@ Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
 
           Write-Host "Windows E2E: " -NoNewline
           if ($windowsStatus -eq "success") {
-            Write-Host "✓ PASSED" -ForegroundColor Green
+            Write-Host "$([char]0x2713) PASSED" -ForegroundColor Green
           } elseif ($windowsStatus -eq "failure") {
-            Write-Host "✗ FAILED" -ForegroundColor Red
+            Write-Host "$([char]0x2717) FAILED" -ForegroundColor Red
           } else {
-            Write-Host "⊘ SKIPPED" -ForegroundColor Yellow
+            Write-Host "$([char]0x2298) SKIPPED" -ForegroundColor Yellow
           }
 
           Write-Host "Linux E2E: " -NoNewline
           if ($linuxStatus -eq "success") {
-            Write-Host "✓ PASSED" -ForegroundColor Green
+            Write-Host "$([char]0x2713) PASSED" -ForegroundColor Green
           } elseif ($linuxStatus -eq "failure") {
-            Write-Host "✗ FAILED (non-blocking)" -ForegroundColor Yellow
+            Write-Host "$([char]0x2717) FAILED (non-blocking)" -ForegroundColor Yellow
           } else {
-            Write-Host "⊘ SKIPPED (runner not available)" -ForegroundColor Gray
+            Write-Host "$([char]0x2298) SKIPPED (runner not available)" -ForegroundColor Gray
           }
 
           Write-Host ""
 
           if ($windowsStatus -eq "success") {
-            Write-Host "✓ End-to-end workflow validation completed successfully!" -ForegroundColor Green
+            Write-Host "$([char]0x2713) End-to-end workflow validation completed successfully!" -ForegroundColor Green
             exit 0
           } else {
-            Write-Host "✗ End-to-end workflow validation failed" -ForegroundColor Red
+            Write-Host "$([char]0x2717) End-to-end workflow validation failed" -ForegroundColor Red
             exit 1
           }
