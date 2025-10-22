@@ -2,6 +2,44 @@
 
 Welcome! This is the build infrastructure for **Dakota Irsik / Irsik Software** repositories. If you're an AI assistant helping build applications in our org, you're in the right place.
 
+## 🚀 NEW: Organization-Level Runner Pool (Recommended)
+
+**Deploy 3-10+ runners for parallel builds across ALL repos!**
+
+Organization-level runners are shared across all repositories in irsiksoftware (LogSmith, LogSmithPro, CandyRush, etc.). This is the recommended approach for maximum efficiency and scalability.
+
+### Quick Deploy (3 Runners)
+
+```powershell
+# Get token from: https://github.com/organizations/irsiksoftware/settings/actions/runners/new
+
+cd C:\Code\ActionRunner
+
+.\scripts\deploy-runner-pool.ps1 `
+    -OrgName "irsiksoftware" `
+    -Token "YOUR_TOKEN_HERE" `
+    -Count 3
+```
+
+**Benefits:**
+- ✅ **Shared Infrastructure** - One runner pool serves all repos
+- ✅ **Auto-Detection** - Capabilities detected automatically (Unity, GPU, Docker, etc.)
+- ✅ **Easy Scaling** - Add runners without updating workflows
+- ✅ **Parallel Builds** - 3 runners = 3× faster CI (15min → 5min for Unity builds)
+
+**Usage in workflows:**
+```yaml
+jobs:
+  build:
+    runs-on: [self-hosted, unity-pool]  # Uses any available org runner
+```
+
+**Documentation:**
+- 📘 **[QUICK-START-ORG-RUNNERS.md](QUICK-START-ORG-RUNNERS.md)** ← Start here!
+- 📖 **[ORG-RUNNER-DEPLOYMENT.md](ORG-RUNNER-DEPLOYMENT.md)** ← Complete guide
+
+---
+
 ## 👋 For AI Assistants (Claude, etc.)
 
 This repository configures our self-hosted GitHub Actions runners. When you're helping build apps in the Irsik Software organization, workflows will run on these runners instead of GitHub's hosted infrastructure.
@@ -23,9 +61,9 @@ See [CAPABILITY-TESTING.md](CAPABILITY-TESTING.md) for detailed capability statu
 
 ### How to Use in Your Workflows
 
-**⚠️ IMPORTANT: Always use Docker containers for isolation and pre-installed dependencies.**
+**Recommended: Use org-level runners with capability-based labels**
 
-When creating GitHub Actions workflows for Irsik Software repos, use containerized jobs:
+When creating GitHub Actions workflows for Irsik Software repos, use the shared runner pool:
 
 ```yaml
 name: Build and Test
@@ -37,6 +75,47 @@ on:
     branches: [ main ]
 
 jobs:
+  # Unity projects - use unity-pool label
+  unity-build:
+    runs-on: [self-hosted, unity-pool]  # Auto-assigned to any available runner with Unity
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run Unity Tests
+        shell: powershell
+        run: |
+          # Unity build commands here
+          # Runners have Unity 2022.3, 2023.2, and 6000.0 installed
+
+  # GPU-accelerated builds
+  gpu-build:
+    runs-on: [self-hosted, gpu, nvidia]  # Requires runner with NVIDIA GPU
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: GPU-accelerated task
+        run: # Your GPU task
+
+  # Docker builds
+  docker-build:
+    runs-on: [self-hosted, docker]  # Requires runner with Docker
+
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build in Docker
+        shell: powershell
+        run: |
+          docker build -t myapp .
+          docker run --rm myapp npm test
+```
+
+**Legacy approach (still supported):**
+
+For Docker containerized builds with pre-installed dependencies:
+
+```yaml
+jobs:
   # Python projects - use multi-Python container
   python-tests:
     runs-on: [self-hosted, windows, docker]
@@ -45,31 +124,9 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - name: Run tests with Python 3.12
         shell: powershell
         run: python -m pytest tests/
-
-      - name: Run tests with Python 3.10
-        shell: powershell
-        run: C:\Python310\python.exe -m pytest tests/
-
-  # .NET projects - use .NET container
-  dotnet-build:
-    runs-on: [self-hosted, windows, docker]
-    container:
-      image: runner-dotnet:latest
-
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Build
-        shell: powershell
-        run: dotnet build
-
-      - name: Test
-        shell: powershell
-        run: dotnet test
 ```
 
 **Important Notes:**

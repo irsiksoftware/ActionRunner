@@ -18,6 +18,7 @@ jobs:
   security-audit:
     name: Security Configuration Audit
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -155,6 +156,7 @@ jobs:
   documentation-check:
     name: Documentation Completeness
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code

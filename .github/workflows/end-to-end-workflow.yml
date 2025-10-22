@@ -280,9 +280,9 @@ Artifacts generated
   # Multi-platform workflow test (if Linux runner available)
   e2e-multi-platform:
     name: 🔄 Multi-Platform E2E
-    runs-on: [self-hosted, linux]
-    continue-on-error: true  # Don't fail if Linux runner not available
-    timeout-minutes: 20
+    runs-on: [self-hosted, windows]
+    continue-on-error: true  # Don't fail if runner not available
+    timeout-minutes: 5
 
     steps:
       - name: Checkout repository

@@ -11,6 +11,7 @@ jobs:
   maven-verification:
     name: Maven Build Tool Verification
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     continue-on-error: true
 
     steps:

@@ -11,6 +11,7 @@ jobs:
   rust-verification:
     name: Rust Toolchain Verification
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     continue-on-error: true
 
     steps:

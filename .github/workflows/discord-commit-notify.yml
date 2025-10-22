@@ -8,6 +8,7 @@ jobs:
   notify-commit:
     name: Notify Discord on Commit
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code

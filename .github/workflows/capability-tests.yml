@@ -12,6 +12,7 @@ jobs:
   core-infrastructure:
     name: ⚙️ Core Infrastructure
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -40,6 +41,7 @@ jobs:
   webapp-support:
     name: 🌐 Web Application Support
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -68,6 +70,7 @@ jobs:
   docker-support:
     name: 🐳 Docker & Container Support
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -96,6 +99,7 @@ jobs:
   mobile-support:
     name: 📱 Mobile Build Support
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     continue-on-error: true  # Mobile support is optional/future
 
     steps:
@@ -125,6 +129,7 @@ jobs:
   ai-support:
     name: 🤖 AI/LLM Build Support
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     continue-on-error: true  # AI support is optional/future
 
     steps:
@@ -154,6 +159,7 @@ jobs:
   integration-tests:
     name: 🔄 Integration & Workflows
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -182,6 +188,7 @@ jobs:
   script-validation:
     name: 🔍 Script Validation
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -234,6 +241,7 @@ jobs:
   capability-status:
     name: 📊 Generate Capability Status
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     needs: [core-infrastructure, webapp-support, docker-support, mobile-support, ai-support, integration-tests, script-validation]
     if: always()
 

@@ -11,6 +11,7 @@ jobs:
   go-verification:
     name: Go Toolchain Verification
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     continue-on-error: true
 
     steps:

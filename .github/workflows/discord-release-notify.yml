@@ -8,6 +8,7 @@ jobs:
   notify-release:
     name: Notify Discord on Release
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code

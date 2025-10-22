@@ -11,6 +11,7 @@ jobs:
   # Example: .NET Build Job
   dotnet-build:
     runs-on: [self-hosted, windows, dotnet]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -42,6 +43,7 @@ jobs:
   # Example: Python Test Job
   python-tests:
     runs-on: [self-hosted, windows, python]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -78,6 +80,7 @@ jobs:
   # Example: Unity Build Job
   unity-build:
     runs-on: [self-hosted, windows, unity]
+    timeout-minutes: 5
     if: contains(github.event.head_commit.message, '[unity]') || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -121,6 +124,7 @@ jobs:
   # Example: GPU-Accelerated AI/ML Job
   gpu-inference:
     runs-on: [self-hosted, windows, gpu-cuda]
+    timeout-minutes: 5
     if: contains(github.event.head_commit.message, '[gpu]') || github.event_name == 'workflow_dispatch'
 
     steps:
@@ -148,6 +152,7 @@ jobs:
   # Note: Windows runners must use 'docker run' command, not 'container:' key
   docker-isolated:
     runs-on: [self-hosted, windows, docker]
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -178,6 +183,7 @@ jobs:
           # - [self-hosted, macos, ios]
 
     runs-on: ${{ matrix.runner }}
+    timeout-minutes: 5
 
     steps:
       - name: Checkout code
@@ -191,6 +197,7 @@ jobs:
   # Status check job
   all-checks-passed:
     runs-on: [self-hosted, windows]
+    timeout-minutes: 5
     needs: [dotnet-build, python-tests]
     if: always()
 
