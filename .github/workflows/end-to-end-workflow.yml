@@ -155,13 +155,13 @@ jobs:
           New-Item -ItemType Directory -Path $buildDir -Force | Out-Null
 
           # Simulate build output
-          $buildLog = @"
-Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')
-=================================
-Compilation successful
-Tests passed
-Artifacts generated
-"@
+          $buildLog = @(
+            "Build Log - $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
+            "================================="
+            "Compilation successful"
+            "Tests passed"
+            "Artifacts generated"
+          ) -join "`n"
           $buildLog | Out-File -FilePath (Join-Path $buildDir "build.log")
 
           Write-Host "$([char]0x2713) Build completed successfully" -ForegroundColor Green
@@ -179,18 +179,18 @@ Artifacts generated
           $testDir = Join-Path $env:TEMP "e2e-tests-$(Get-Random)"
           New-Item -ItemType Directory -Path $testDir -Force | Out-Null
 
-          $testResults = @"
-<?xml version="1.0" encoding="UTF-8"?>
-<testsuites>
-  <testsuite name="E2E Workflow Tests" tests="5" failures="0" errors="0" time="12.5">
-    <testcase name="test_runner_setup" time="2.1" />
-    <testcase name="test_github_integration" time="3.2" />
-    <testcase name="test_multi_framework" time="4.5" />
-    <testcase name="test_health_monitoring" time="1.8" />
-    <testcase name="test_cleanup" time="0.9" />
-  </testsuite>
-</testsuites>
-"@
+          $testResults = @(
+            '<?xml version="1.0" encoding="UTF-8"?>'
+            '<testsuites>'
+            '  <testsuite name="E2E Workflow Tests" tests="5" failures="0" errors="0" time="12.5">'
+            '    <testcase name="test_runner_setup" time="2.1" />'
+            '    <testcase name="test_github_integration" time="3.2" />'
+            '    <testcase name="test_multi_framework" time="4.5" />'
+            '    <testcase name="test_health_monitoring" time="1.8" />'
+            '    <testcase name="test_cleanup" time="0.9" />'
+            '  </testsuite>'
+            '</testsuites>'
+          ) -join "`n"
           $testResults | Out-File -FilePath (Join-Path $testDir "test-results.xml")
 
           Write-Host "$([char]0x2713) All tests passed (5/5)" -ForegroundColor Green
