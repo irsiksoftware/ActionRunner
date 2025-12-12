@@ -343,7 +343,7 @@ Describe "verify-embedding-models.ps1 - Embedding Model Specific Checks" {
     }
 
     It "Tests batch encoding" {
-        $script:Content | Should -Match 'batch|list of sentences'
+        $script:Content | Should -Match 'test_sentences|encode.*convert_to_tensor'
     }
 
     It "Includes embedding performance check" {
