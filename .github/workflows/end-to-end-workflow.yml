@@ -280,7 +280,7 @@ jobs:
   # Multi-platform workflow test (if Linux runner available)
   e2e-multi-platform:
     name: 🔄 Multi-Platform E2E
-    runs-on: [self-hosted, windows]
+    runs-on: [self-hosted, linux]
     continue-on-error: true  # Don't fail if runner not available
     timeout-minutes: 5
 
