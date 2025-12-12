@@ -25,11 +25,11 @@
 .PARAMETER Labels
     Comma-separated list of labels for the runner.
     If not specified and AutoDetectLabels is enabled, labels are auto-detected.
-    If not specified and AutoDetectLabels is disabled, uses default static labels.
+    If not specified and AutoDetectLabels is disabled, uses default labels from config/runner-labels.psd1.
 
 .PARAMETER AutoDetectLabels
     Enable automatic detection of runner capabilities to generate labels.
-    Default: $true. Set to $false to use static default labels.
+    Default: $true. Set to $false to use static default labels from config/runner-labels.psd1.
 
 .PARAMETER WorkFolder
     Working directory for the runner (default: C:\actions-runner)
@@ -89,8 +89,16 @@ $ErrorActionPreference = "Stop"
 # Get script directory for calling detect-capabilities.ps1
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# Static default labels (used when auto-detection is disabled or fails)
-$StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity-pool,gpu-cuda,docker,desktop"
+# Load default labels from centralized configuration (used when auto-detection is disabled or fails)
+$labelsConfigPath = Join-Path $PSScriptRoot "..\config\runner-labels.psd1"
+if (Test-Path $labelsConfigPath) {
+    $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+    $StaticDefaultLabels = $labelsConfig.DefaultLabels -join ','
+} else {
+    # Fallback if config file is missing
+    $StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker"
+    Write-Warning "Labels configuration not found at $labelsConfigPath, using fallback defaults"
+}
 
 # Logging function
 function Write-Log {

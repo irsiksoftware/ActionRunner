@@ -321,18 +321,63 @@ Describe "install-runner.ps1" {
             $params['WorkFolder'].Attributes.Where({$_.TypeId.Name -eq 'ParameterAttribute'}).ValueFromRemainingArguments | Should -BeFalse
         }
 
-        It "Should have correct default Labels including gpu-cuda and unity" {
-            # Check in script content since default value is in param block
-            $scriptContent = Get-Content $ScriptPath -Raw
-            $scriptContent | Should -Match 'gpu-cuda.*unity.*dotnet.*python.*windows'
-        }
-
         It "Should default InstallService to false" {
             $params['InstallService'].ParameterType.Name | Should -Be 'SwitchParameter'
         }
 
         It "Should default IsOrg to false" {
             $params['IsOrg'].ParameterType.Name | Should -Be 'SwitchParameter'
+        }
+    }
+
+    Context "Centralized Labels Configuration" {
+        BeforeAll {
+            $labelsConfigPath = Join-Path $ProjectRoot "config\runner-labels.psd1"
+            $scriptContent = Get-Content $ScriptPath -Raw
+        }
+
+        It "Should load labels from centralized config file" {
+            $scriptContent | Should -Match 'runner-labels\.psd1'
+        }
+
+        It "Should use Import-PowerShellDataFile to load labels" {
+            $scriptContent | Should -Match 'Import-PowerShellDataFile'
+        }
+
+        It "Should have a fallback if config file is missing" {
+            $scriptContent | Should -Match 'Fallback if config file is missing'
+        }
+
+        It "Should reference DefaultLabels from config" {
+            $scriptContent | Should -Match 'DefaultLabels'
+        }
+
+        It "Centralized labels config file should exist" {
+            Test-Path $labelsConfigPath | Should -Be $true
+        }
+
+        It "Centralized labels config should contain DefaultLabels" {
+            $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+            $labelsConfig.DefaultLabels | Should -Not -BeNullOrEmpty
+        }
+
+        It "Centralized labels config should include self-hosted label" {
+            $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+            $labelsConfig.DefaultLabels | Should -Contain 'self-hosted'
+        }
+
+        It "Centralized labels config should include windows label" {
+            $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+            $labelsConfig.DefaultLabels | Should -Contain 'windows'
+        }
+
+        It "Centralized labels config should include all expected labels" {
+            $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+            $labelsConfig.DefaultLabels | Should -Contain 'dotnet'
+            $labelsConfig.DefaultLabels | Should -Contain 'python'
+            $labelsConfig.DefaultLabels | Should -Contain 'unity'
+            $labelsConfig.DefaultLabels | Should -Contain 'gpu-cuda'
+            $labelsConfig.DefaultLabels | Should -Contain 'docker'
         }
     }
 
