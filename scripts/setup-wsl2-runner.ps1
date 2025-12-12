@@ -57,7 +57,7 @@ try {
         throw "WSL not found"
     }
 } catch {
-    Write-Host "❌ WSL2 is not installed!" -ForegroundColor Red
+    Write-Host "X WSL2 is not installed!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Install WSL2 first:" -ForegroundColor Yellow
     Write-Host "  wsl --install" -ForegroundColor White
@@ -68,7 +68,7 @@ try {
 
 # Check if specified distro exists
 if (-not ($wslList -match $DistroName)) {
-    Write-Host "❌ WSL2 distro '$DistroName' not found!" -ForegroundColor Red
+    Write-Host "X WSL2 distro '$DistroName' not found!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Available distros:" -ForegroundColor Yellow
     wsl --list
@@ -80,12 +80,12 @@ if (-not ($wslList -match $DistroName)) {
 # Check if distro is WSL2 (not WSL1)
 $version = ($wslList | Select-String -Pattern "$DistroName\s+\w+\s+(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value })
 if ($version -ne "2") {
-    Write-Host "⚠ Converting $DistroName to WSL2..." -ForegroundColor Yellow
+    Write-Host "! Converting $DistroName to WSL2..." -ForegroundColor Yellow
     wsl --set-version $DistroName 2
     Start-Sleep -Seconds 5
 }
 
-Write-Host "✓ WSL2 $DistroName is ready" -ForegroundColor Green
+Write-Host "OK WSL2 $DistroName is ready" -ForegroundColor Green
 Write-Host ""
 
 # Get the ActionRunner repo path in WSL2 format
@@ -97,104 +97,104 @@ Write-Host ""
 # Create installation script for WSL2
 Write-Host "Creating installation script..." -ForegroundColor Yellow
 
-$installScript = @"
-#!/bin/bash
-set -e
-
-echo '=== Installing Linux Runner in WSL2 ==='
-echo ''
-
-# Update package lists
-echo 'Updating packages...'
-sudo apt-get update -qq
-
-# Install dependencies
-echo 'Installing dependencies...'
-sudo apt-get install -y curl wget git
-
-# Create runner directory
-RUNNER_DIR="\$HOME/actions-runner"
-mkdir -p "\$RUNNER_DIR"
-cd "\$RUNNER_DIR"
-
-# Download runner
-RUNNER_VERSION="2.311.0"
-if [ ! -f "config.sh" ]; then
-    echo 'Downloading GitHub Actions runner...'
-    curl -o actions-runner-linux-x64-\${RUNNER_VERSION}.tar.gz \\
-        -L https://github.com/actions/runner/releases/download/v\${RUNNER_VERSION}/actions-runner-linux-x64-\${RUNNER_VERSION}.tar.gz
-
-    tar xzf actions-runner-linux-x64-\${RUNNER_VERSION}.tar.gz
-    rm actions-runner-linux-x64-\${RUNNER_VERSION}.tar.gz
-    echo '✓ Runner downloaded'
-else
-    echo '✓ Runner already downloaded'
-fi
-
-# Configure runner
-echo ''
-echo 'Configuring runner...'
-./config.sh \\
-    --url '$RepoUrl' \\
-    --token '$Token' \\
-    --name '$RunnerName' \\
-    --labels 'self-hosted,linux,docker,wsl2' \\
-    --work '_work' \\
-    --unattended \\
-    --replace
-
-echo '✓ Runner configured'
-
-# Install as systemd service
-echo ''
-echo 'Installing as systemd service...'
-sudo ./svc.sh install
-sudo ./svc.sh start
-
-echo '✓ Service installed and started'
-
-# Build Linux Docker image
-echo ''
-echo 'Building Python Docker image...'
-REPO_PATH='$wslPath'
-if [ -d "\$REPO_PATH/docker" ]; then
-    cd "\$REPO_PATH"
-
-    if [ -f "scripts/build-python-image-linux.sh" ]; then
-        chmod +x scripts/build-python-image-linux.sh
-        ./scripts/build-python-image-linux.sh
-    else
-        echo 'Building manually...'
-        docker build -t runner-python-multi:latest -f docker/Dockerfile.python-multi-linux docker/
-    fi
-
-    echo '✓ Docker image built'
-else
-    echo '⚠ Could not find repository at \$REPO_PATH'
-    echo '  You can build the Docker image manually later'
-fi
-
-# Check service status
-echo ''
-echo '=== Runner Status ==='
-sudo systemctl status actions.runner.* --no-pager || true
-
-echo ''
-echo '✓ Setup complete!'
-echo ''
-echo 'Your Linux runner is now active with labels:'
-echo '  - self-hosted'
-echo '  - linux'
-echo '  - docker'
-echo '  - wsl2'
-"@
+$installScript = @(
+    "#!/bin/bash",
+    "set -e",
+    "",
+    "echo '=== Installing Linux Runner in WSL2 ==='",
+    "echo ''",
+    "",
+    "# Update package lists",
+    "echo 'Updating packages...'",
+    "sudo apt-get update -qq",
+    "",
+    "# Install dependencies",
+    "echo 'Installing dependencies...'",
+    "sudo apt-get install -y curl wget git",
+    "",
+    "# Create runner directory",
+    "RUNNER_DIR=`"`$HOME/actions-runner`"",
+    "mkdir -p `"`$RUNNER_DIR`"",
+    "cd `"`$RUNNER_DIR`"",
+    "",
+    "# Download runner",
+    "RUNNER_VERSION=`"2.311.0`"",
+    "if [ ! -f `"config.sh`" ]; then",
+    "    echo 'Downloading GitHub Actions runner...'",
+    "    curl -o actions-runner-linux-x64-`${RUNNER_VERSION}.tar.gz \",
+    "        -L https://github.com/actions/runner/releases/download/v`${RUNNER_VERSION}/actions-runner-linux-x64-`${RUNNER_VERSION}.tar.gz",
+    "",
+    "    tar xzf actions-runner-linux-x64-`${RUNNER_VERSION}.tar.gz",
+    "    rm actions-runner-linux-x64-`${RUNNER_VERSION}.tar.gz",
+    "    echo 'Runner downloaded'",
+    "else",
+    "    echo 'Runner already downloaded'",
+    "fi",
+    "",
+    "# Configure runner",
+    "echo ''",
+    "echo 'Configuring runner...'",
+    "./config.sh \",
+    "    --url '$RepoUrl' \",
+    "    --token '$Token' \",
+    "    --name '$RunnerName' \",
+    "    --labels 'self-hosted,linux,docker,wsl2' \",
+    "    --work '_work' \",
+    "    --unattended \",
+    "    --replace",
+    "",
+    "echo 'Runner configured'",
+    "",
+    "# Install as systemd service",
+    "echo ''",
+    "echo 'Installing as systemd service...'",
+    "sudo ./svc.sh install",
+    "sudo ./svc.sh start",
+    "",
+    "echo 'Service installed and started'",
+    "",
+    "# Build Linux Docker image",
+    "echo ''",
+    "echo 'Building Python Docker image...'",
+    "REPO_PATH='$wslPath'",
+    "if [ -d `"`$REPO_PATH/docker`" ]; then",
+    "    cd `"`$REPO_PATH`"",
+    "",
+    "    if [ -f `"scripts/build-python-image-linux.sh`" ]; then",
+    "        chmod +x scripts/build-python-image-linux.sh",
+    "        ./scripts/build-python-image-linux.sh",
+    "    else",
+    "        echo 'Building manually...'",
+    "        docker build -t runner-python-multi:latest -f docker/Dockerfile.python-multi-linux docker/",
+    "    fi",
+    "",
+    "    echo 'Docker image built'",
+    "else",
+    "    echo 'Could not find repository at `$REPO_PATH'",
+    "    echo '  You can build the Docker image manually later'",
+    "fi",
+    "",
+    "# Check service status",
+    "echo ''",
+    "echo '=== Runner Status ==='",
+    "sudo systemctl status actions.runner.* --no-pager || true",
+    "",
+    "echo ''",
+    "echo 'Setup complete!'",
+    "echo ''",
+    "echo 'Your Linux runner is now active with labels:'",
+    "echo '  - self-hosted'",
+    "echo '  - linux'",
+    "echo '  - docker'",
+    "echo '  - wsl2'"
+) -join "`n"
 
 # Save script to temp file
 $tempScript = [System.IO.Path]::GetTempFileName()
 $tempScriptLinux = $tempScript -replace '\\', '/' -replace 'C:', '/mnt/c'
 Set-Content -Path $tempScript -Value $installScript -NoNewline
 
-Write-Host "✓ Installation script created" -ForegroundColor Green
+Write-Host "OK Installation script created" -ForegroundColor Green
 Write-Host ""
 
 # Run the installation script in WSL2
@@ -204,12 +204,15 @@ Write-Host ""
 
 try {
     # Copy script to WSL2 and execute
-    wsl -d $DistroName bash -c "cat > /tmp/setup-runner.sh << 'EOFMARKER'
-$installScript
-EOFMARKER
-chmod +x /tmp/setup-runner.sh
-/tmp/setup-runner.sh
-"
+    $wslCommand = @(
+        "cat > /tmp/setup-runner.sh << 'EOFMARKER'",
+        $installScript,
+        "EOFMARKER",
+        "chmod +x /tmp/setup-runner.sh",
+        "/tmp/setup-runner.sh"
+    ) -join "`n"
+
+    wsl -d $DistroName bash -c $wslCommand
 
     if ($LASTEXITCODE -ne 0) {
         throw "Installation failed with exit code $LASTEXITCODE"
@@ -224,7 +227,7 @@ chmod +x /tmp/setup-runner.sh
     Write-Host "   Labels: self-hosted, windows, docker"
     Write-Host "   For: Windows builds, .NET Framework, Unity"
     Write-Host ""
-    Write-Host "2. Linux Runner (WSL2 Ubuntu) ← NEW!" -ForegroundColor Yellow
+    Write-Host "2. Linux Runner (WSL2 Ubuntu) <- NEW!" -ForegroundColor Yellow
     Write-Host "   Labels: self-hosted, linux, docker, wsl2"
     Write-Host "   For: Python, Node, cross-platform testing"
     Write-Host ""
@@ -238,7 +241,7 @@ chmod +x /tmp/setup-runner.sh
 
 } catch {
     Write-Host ""
-    Write-Host "❌ Setup failed: $_" -ForegroundColor Red
+    Write-Host "X Setup failed: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow
     Write-Host "1. Check WSL2 is running: wsl -d $DistroName" -ForegroundColor White
