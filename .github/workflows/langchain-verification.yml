@@ -39,9 +39,9 @@ jobs:
             Write-Host "`nDetailed Check Results:" -ForegroundColor Cyan
             foreach ($check in $result.checks) {
               $icon = switch ($check.severity) {
-                'Pass' { '✅' }
-                'Warning' { '⚠️' }
-                'Error' { '❌' }
+                'Pass' { '[OK]' }
+                'Warning' { '[WARN]' }
+                'Error' { '[FAIL]' }
               }
               $color = switch ($check.severity) {
                 'Pass' { 'Green' }
@@ -56,20 +56,20 @@ jobs:
 
             # Determine exit status
             if ($result.failed -gt 0) {
-              Write-Host "`n❌ LangChain verification failed with $($result.failed) error(s)" -ForegroundColor Red
+              Write-Host "`n[FAIL] LangChain verification failed with $($result.failed) error(s)" -ForegroundColor Red
               exit 1
             }
             elseif ($result.warnings -gt 0) {
-              Write-Host "`n⚠️ LangChain verification passed with $($result.warnings) warning(s)" -ForegroundColor Yellow
+              Write-Host "`n[WARN] LangChain verification passed with $($result.warnings) warning(s)" -ForegroundColor Yellow
               exit 0
             }
             else {
-              Write-Host "`n✅ LangChain verification completed successfully!" -ForegroundColor Green
+              Write-Host "`n[OK] LangChain verification completed successfully!" -ForegroundColor Green
               exit 0
             }
           }
           catch {
-            Write-Host "`n❌ Failed to parse verification results: $($_.Exception.Message)" -ForegroundColor Red
+            Write-Host "`n[FAIL] Failed to parse verification results: $($_.Exception.Message)" -ForegroundColor Red
             Write-Host "Raw output:" -ForegroundColor Yellow
             Write-Host $langchainOutput
             exit 1
@@ -103,11 +103,11 @@ jobs:
           Write-Host "Skipped: $($testResult.SkippedCount)" -ForegroundColor Yellow
 
           if ($testResult.FailedCount -gt 0) {
-            Write-Host "`n❌ LangChain unit tests failed" -ForegroundColor Red
+            Write-Host "`n[FAIL] LangChain unit tests failed" -ForegroundColor Red
             exit 1
           }
           else {
-            Write-Host "`n✅ All LangChain unit tests passed!" -ForegroundColor Green
+            Write-Host "`n[OK] All LangChain unit tests passed!" -ForegroundColor Green
             exit 0
           }
 

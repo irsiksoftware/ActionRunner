@@ -57,7 +57,7 @@ try {
         throw "WSL not found"
     }
 } catch {
-    Write-Host "❌ WSL2 is not installed!" -ForegroundColor Red
+    Write-Host "[FAIL] WSL2 is not installed!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Install WSL2 first:" -ForegroundColor Yellow
     Write-Host "  wsl --install" -ForegroundColor White
@@ -68,7 +68,7 @@ try {
 
 # Check if specified distro exists
 if (-not ($wslList -match $DistroName)) {
-    Write-Host "❌ WSL2 distro '$DistroName' not found!" -ForegroundColor Red
+    Write-Host "[FAIL] WSL2 distro '$DistroName' not found!" -ForegroundColor Red
     Write-Host ""
     Write-Host "Available distros:" -ForegroundColor Yellow
     wsl --list
@@ -80,12 +80,12 @@ if (-not ($wslList -match $DistroName)) {
 # Check if distro is WSL2 (not WSL1)
 $version = ($wslList | Select-String -Pattern "$DistroName\s+\w+\s+(\d+)" | ForEach-Object { $_.Matches.Groups[1].Value })
 if ($version -ne "2") {
-    Write-Host "⚠ Converting $DistroName to WSL2..." -ForegroundColor Yellow
+    Write-Host "[WARN] Converting $DistroName to WSL2..." -ForegroundColor Yellow
     wsl --set-version $DistroName 2
     Start-Sleep -Seconds 5
 }
 
-Write-Host "✓ WSL2 $DistroName is ready" -ForegroundColor Green
+Write-Host "[OK] WSL2 $DistroName is ready" -ForegroundColor Green
 Write-Host ""
 
 # Get the ActionRunner repo path in WSL2 format
@@ -126,9 +126,9 @@ $installScript = @(
     "",
     "    tar xzf actions-runner-linux-x64-`${RUNNER_VERSION}.tar.gz",
     "    rm actions-runner-linux-x64-`${RUNNER_VERSION}.tar.gz",
-    "    echo '✓ Runner downloaded'",
+    "    echo '[OK] Runner downloaded'",
     "else",
-    "    echo '✓ Runner already downloaded'",
+    "    echo '[OK] Runner already downloaded'",
     "fi",
     "",
     "# Configure runner",
@@ -143,7 +143,7 @@ $installScript = @(
     "    --unattended \",
     "    --replace",
     "",
-    "echo '✓ Runner configured'",
+    "echo '[OK] Runner configured'",
     "",
     "# Install as systemd service",
     "echo ''",
@@ -151,7 +151,7 @@ $installScript = @(
     "sudo ./svc.sh install",
     "sudo ./svc.sh start",
     "",
-    "echo '✓ Service installed and started'",
+    "echo '[OK] Service installed and started'",
     "",
     "# Build Linux Docker image",
     "echo ''",
@@ -168,9 +168,9 @@ $installScript = @(
     "        docker build -t runner-python-multi:latest -f docker/Dockerfile.python-multi-linux docker/",
     "    fi",
     "",
-    "    echo '✓ Docker image built'",
+    "    echo '[OK] Docker image built'",
     "else",
-    "    echo '⚠ Could not find repository at `$REPO_PATH'",
+    "    echo '[WARN] Could not find repository at `$REPO_PATH'",
     "    echo '  You can build the Docker image manually later'",
     "fi",
     "",
@@ -180,7 +180,7 @@ $installScript = @(
     "sudo systemctl status actions.runner.* --no-pager || true",
     "",
     "echo ''",
-    "echo '✓ Setup complete!'",
+    "echo '[OK] Setup complete!'",
     "echo ''",
     "echo 'Your Linux runner is now active with labels:'",
     "echo '  - self-hosted'",
@@ -194,7 +194,7 @@ $tempScript = [System.IO.Path]::GetTempFileName()
 $tempScriptLinux = $tempScript -replace '\\', '/' -replace 'C:', '/mnt/c'
 Set-Content -Path $tempScript -Value $installScript -NoNewline
 
-Write-Host "✓ Installation script created" -ForegroundColor Green
+Write-Host "[OK] Installation script created" -ForegroundColor Green
 Write-Host ""
 
 # Run the installation script in WSL2
@@ -234,7 +234,7 @@ try {
 
 } catch {
     Write-Host ""
-    Write-Host "❌ Setup failed: $_" -ForegroundColor Red
+    Write-Host "[FAIL] Setup failed: $_" -ForegroundColor Red
     Write-Host ""
     Write-Host "Troubleshooting:" -ForegroundColor Yellow
     Write-Host "1. Check WSL2 is running: wsl -d $DistroName" -ForegroundColor White

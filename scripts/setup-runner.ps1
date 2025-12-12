@@ -178,5 +178,5 @@ if ($RunAsService) {
 }
 
 Write-Host ""
-Write-Host "✓ Runner setup completed successfully!" -ForegroundColor Green
+Write-Host "[OK] Runner setup completed successfully!" -ForegroundColor Green
 Write-Host "  Check GitHub repository Settings > Actions > Runners to verify" -ForegroundColor Green
