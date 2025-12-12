@@ -273,9 +273,9 @@ jobs:
             foreach ($cap in $status.Capabilities.PSObject.Properties) {
               $data = $cap.Value
               $icon = switch ($data.Status) {
-                'Pass' { '✓' }
-                'Warning' { '⚠' }
-                'Fail' { '✗' }
+                'Pass' { '[PASS]' }
+                'Warning' { '[WARN]' }
+                'Fail' { '[FAIL]' }
               }
               $color = switch ($data.Status) {
                 'Pass' { 'Green' }
@@ -309,21 +309,21 @@ jobs:
           $scriptStatus = "${{ needs.script-validation.result }}"
 
           Write-Host "`n=== JOB STATUS SUMMARY ===" -ForegroundColor Cyan
-          Write-Host "⚙️  Core Infrastructure: $coreStatus"
-          Write-Host "🌐 Web Application Support: $webappStatus"
-          Write-Host "🐳 Docker & Container Support: $dockerStatus"
-          Write-Host "🔄 Integration & Workflows: $integrationStatus"
-          Write-Host "🔍 Script Validation: $scriptStatus"
-          Write-Host "📱 Mobile Build Support: ${{ needs.mobile-support.result }} (optional)"
-          Write-Host "🤖 AI/LLM Build Support: ${{ needs.ai-support.result }} (optional)"
+          Write-Host "[CORE] Core Infrastructure: $coreStatus"
+          Write-Host "[WEB]  Web Application Support: $webappStatus"
+          Write-Host "[DOCK] Docker & Container Support: $dockerStatus"
+          Write-Host "[INTG] Integration & Workflows: $integrationStatus"
+          Write-Host "[SCRP] Script Validation: $scriptStatus"
+          Write-Host "[MOBL] Mobile Build Support: ${{ needs.mobile-support.result }} (optional)"
+          Write-Host "[AI]   AI/LLM Build Support: ${{ needs.ai-support.result }} (optional)"
 
           # Core capabilities must pass (not optional)
           if ($coreStatus -eq "success" -and $webappStatus -eq "success" -and
               $dockerStatus -eq "success" -and $integrationStatus -eq "success" -and
               $scriptStatus -eq "success") {
-            Write-Host "`n✓ All core build capabilities are functional!" -ForegroundColor Green
+            Write-Host "`n[OK] All core build capabilities are functional!" -ForegroundColor Green
             exit 0
           } else {
-            Write-Host "`n✗ Some core capabilities need attention" -ForegroundColor Red
+            Write-Host "`n[FAIL] Some core capabilities need attention" -ForegroundColor Red
             exit 1
           }

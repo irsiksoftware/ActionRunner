@@ -34,9 +34,9 @@ jobs:
           if (Test-Path "config/firewall-rules.yaml") {
             $content = Get-Content "config/firewall-rules.yaml" -Raw
             $lines = ($content -split "`n").Count
-            Write-Host "   ✓ Firewall rules file exists ($lines lines)"
+            Write-Host "   [OK] Firewall rules file exists ($lines lines)"
           } else {
-            Write-Warning "   ⚠ Firewall rules file missing"
+            Write-Warning "   [WARN] Firewall rules file missing"
           }
 
           Write-Host ""
@@ -46,9 +46,9 @@ jobs:
           if (Test-Path "docs/security.md") {
             $content = Get-Content "docs/security.md" -Raw
             $lines = ($content -split "`n").Count
-            Write-Host "   ✓ Security documentation exists ($lines lines)"
+            Write-Host "   [OK] Security documentation exists ($lines lines)"
           } else {
-            Write-Warning "   ⚠ Security documentation missing"
+            Write-Warning "   [WARN] Security documentation missing"
           }
 
           Write-Host ""
@@ -70,13 +70,13 @@ jobs:
           foreach ($pattern in $sensitivePatterns) {
             $files = Get-ChildItem -Path . -Filter $pattern -Recurse -ErrorAction SilentlyContinue | Where-Object { $_.FullName -notmatch '\\\.git\\' }
             if ($files) {
-              Write-Warning "   ⚠ Found potentially sensitive files: $pattern"
+              Write-Warning "   [WARN] Found potentially sensitive files: $pattern"
               $foundSensitive = $true
             }
           }
 
           if (-not $foundSensitive) {
-            Write-Host "   ✓ No obvious sensitive files found"
+            Write-Host "   [OK] No obvious sensitive files found"
           }
 
           Write-Host ""
@@ -84,7 +84,7 @@ jobs:
           # Check .gitignore
           Write-Host "4. .gitignore Configuration:"
           if (Test-Path ".gitignore") {
-            Write-Host "   ✓ .gitignore exists"
+            Write-Host "   [OK] .gitignore exists"
             $gitignoreContent = Get-Content ".gitignore" -Raw
 
             # Check for important patterns
@@ -96,13 +96,13 @@ jobs:
 
             foreach ($pattern in $importantPatterns.GetEnumerator()) {
               if ($gitignoreContent -match [regex]::Escape($pattern.Key)) {
-                Write-Host "   ✓ Ignoring $($pattern.Value)"
+                Write-Host "   [OK] Ignoring $($pattern.Value)"
               } else {
-                Write-Warning "   ⚠ Not ignoring $($pattern.Value) ($($pattern.Key))"
+                Write-Warning "   [WARN] Not ignoring $($pattern.Value) ($($pattern.Key))"
               }
             }
           } else {
-            Write-Warning "   ⚠ .gitignore missing"
+            Write-Warning "   [WARN] .gitignore missing"
           }
 
           Write-Host ""
@@ -135,13 +135,13 @@ jobs:
               $issuesFound = $false
               foreach ($pattern in $dangerousPatterns.GetEnumerator()) {
                 if ($content -match $pattern.Key) {
-                  Write-Warning "  ⚠ Found potentially dangerous pattern: $($pattern.Key) - $($pattern.Value)"
+                  Write-Warning "  [WARN] Found potentially dangerous pattern: $($pattern.Key) - $($pattern.Value)"
                   $issuesFound = $true
                 }
               }
 
               if (-not $issuesFound) {
-                Write-Host "  ✓ No obvious security issues"
+                Write-Host "  [OK] No obvious security issues"
               }
 
               Write-Host ""
@@ -188,9 +188,9 @@ jobs:
           $allSectionsPresent = $true
           foreach ($section in $requiredSections) {
             if ($securityDoc -match $section) {
-              Write-Host "  ✓ Section found: $section"
+              Write-Host "  [OK] Section found: $section"
             } else {
-              Write-Warning "  ⚠ Section missing or incomplete: $section"
+              Write-Warning "  [WARN] Section missing or incomplete: $section"
               $allSectionsPresent = $false
             }
           }
@@ -198,9 +198,9 @@ jobs:
           Write-Host ""
 
           if ($allSectionsPresent) {
-            Write-Host "✓ All required documentation sections present"
+            Write-Host "[OK] All required documentation sections present"
           } else {
-            Write-Warning "⚠ Some documentation sections may be incomplete"
+            Write-Warning "[WARN] Some documentation sections may be incomplete"
           }
 
           Write-Host ""
