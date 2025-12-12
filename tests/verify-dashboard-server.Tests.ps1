@@ -147,7 +147,8 @@ Describe "verify-dashboard-server.ps1 - API Endpoint Data Structure" {
     }
 
     It "Returns status field" {
-        $script:Content | Should -Match 'status\s*=\s*"online"'
+        # Status can be "online", "offline", or "idle" depending on data source
+        $script:Content | Should -Match 'status\s*='
     }
 
     It "Returns timestamp field" {
@@ -264,7 +265,7 @@ Describe "verify-dashboard-server.ps1 - Chart Data Generation" {
         $script:Content = Get-Content $script:ServerPath -Raw
     }
 
-    It "Generates 7 days of jobs per day data" {
+    It "Generates 7 days of jobs per day data (fallback)" {
         $script:Content | Should -Match 'for \(\$i = 6; \$i -ge 0; \$i--\)'
     }
 
@@ -274,10 +275,6 @@ Describe "verify-dashboard-server.ps1 - Chart Data Generation" {
 
     It "Formats dates for chart labels" {
         $script:Content | Should -Match 'ToString\("MMM dd"\)'
-    }
-
-    It "Generates random job counts" {
-        $script:Content | Should -Match 'Get-Random'
     }
 
     It "Includes date field in chart data" {
@@ -293,47 +290,30 @@ Describe "verify-dashboard-server.ps1 - Chart Data Generation" {
     }
 }
 
-Describe "verify-dashboard-server.ps1 - Recent Jobs Generation" {
+Describe "verify-dashboard-server.ps1 - Recent Jobs and Status" {
     BeforeAll {
         $script:Content = Get-Content $script:ServerPath -Raw
     }
 
-    It "Defines job name templates" {
-        $script:Content | Should -Match '\$jobNames\s*=\s*@\('
+    It "Assigns job status values" {
+        # Status values used in data (online/offline/idle for runner, success/failure for jobs)
+        $script:Content | Should -Match '"offline"'
     }
 
-    It "Includes common job names" {
-        $script:Content | Should -Match '"Build and Test"'
+    It "Checks for C drive by name" {
+        $script:Content | Should -Match 'Name -eq "C"'
     }
 
-    It "Generates multiple recent jobs" {
-        $script:Content | Should -Match 'for \(\$i = 0; \$i -lt'
-    }
-
-    It "Assigns job status (running/success/failure)" {
-        $script:Content | Should -Match '"running"'
-        $script:Content | Should -Match '"success"'
-        $script:Content | Should -Match '"failure"'
-    }
-
-    It "Includes job name field" {
-        $script:Content | Should -Match 'name\s*='
-    }
-
-    It "Includes job status field" {
+    It "Includes status field" {
         $script:Content | Should -Match 'status\s*='
     }
 
-    It "Includes job timestamp field" {
+    It "Includes timestamp field" {
         $script:Content | Should -Match 'timestamp\s*='
     }
 
-    It "Includes job duration field" {
-        $script:Content | Should -Match 'duration\s*='
-    }
-
-    It "Uses timestamps with AddMinutes for job history" {
-        $script:Content | Should -Match '\.AddMinutes\('
+    It "Includes recentJobs array" {
+        $script:Content | Should -Match 'recentJobs\s*='
     }
 }
 
@@ -511,5 +491,40 @@ Describe "verify-dashboard-server.ps1 - Documentation and Help" {
 
     It "Has detailed description" {
         $script:Content | Should -Match '\.DESCRIPTION'
+    }
+}
+
+Describe "verify-dashboard-server.ps1 - DashboardDataProvider Integration" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ServerPath -Raw
+        $script:ModulePath = Join-Path $PSScriptRoot '..\modules\DashboardDataProvider.psm1'
+    }
+
+    It "Imports DashboardDataProvider module" {
+        $script:Content | Should -Match 'Import-Module \$modulePath'
+    }
+
+    It "DashboardDataProvider module exists" {
+        Test-Path $script:ModulePath | Should -Be $true
+    }
+
+    It "Uses Get-DashboardData function for real data" {
+        $script:Content | Should -Match 'Get-DashboardData'
+    }
+
+    It "Has LogPath parameter for specifying runner logs" {
+        $script:Content | Should -Match '\$LogPath'
+    }
+
+    It "Has fallback data when module unavailable" {
+        $script:Content | Should -Match 'if \(\$null -eq \$data\)'
+    }
+
+    It "Module exports required functions" {
+        Import-Module $script:ModulePath -Force -WarningAction SilentlyContinue
+        Get-Command -Name 'Get-DashboardData' -Module 'DashboardDataProvider' | Should -Not -BeNullOrEmpty
+        Get-Command -Name 'Parse-WorkerLogs' -Module 'DashboardDataProvider' | Should -Not -BeNullOrEmpty
+        Get-Command -Name 'Get-RunnerStatus' -Module 'DashboardDataProvider' | Should -Not -BeNullOrEmpty
+        Get-Command -Name 'Get-DiskMetrics' -Module 'DashboardDataProvider' | Should -Not -BeNullOrEmpty
     }
 }
