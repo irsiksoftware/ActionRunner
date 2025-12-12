@@ -98,6 +98,14 @@ if (Test-Path $labelsConfigPath) {
     throw "Labels configuration not found at $labelsConfigPath. Ensure config/runner-labels.psd1 exists."
 }
 
+# Load GitHub API configuration
+$apiConfigPath = Join-Path $PSScriptRoot "..\config\github-api.psd1"
+if (Test-Path $apiConfigPath) {
+    $apiConfig = Import-PowerShellDataFile -Path $apiConfigPath
+} else {
+    throw "GitHub API configuration not found at $apiConfigPath. Ensure config/github-api.psd1 exists."
+}
+
 # Logging function
 function Write-Log {
     param([string]$Message, [string]$Level = "INFO")
@@ -171,8 +179,9 @@ Set-Location $WorkFolder
 
 # Download latest runner
 Write-Log "Fetching latest runner version..."
-$latestRelease = Invoke-RestMethod -Uri "https://api.github.com/repos/actions/runner/releases/latest" -Headers @{
-    "Accept" = "application/vnd.github+json"
+$runnerReleasesUrl = $apiConfig.ApiBaseUrl + $apiConfig.Endpoints.RunnerReleases
+$latestRelease = Invoke-RestMethod -Uri $runnerReleasesUrl -Headers @{
+    "Accept" = $apiConfig.Headers.Accept
 }
 
 $version = $latestRelease.tag_name.TrimStart('v')
@@ -201,18 +210,20 @@ if (Test-Path ".\bin") {
 Write-Log "Requesting registration token from GitHub..."
 
 if ($IsOrg) {
-    $tokenUrl = "https://api.github.com/orgs/$OrgOrRepo/actions/runners/registration-token"
-    $runnerUrl = "https://github.com/$OrgOrRepo"
+    $tokenEndpoint = $apiConfig.Endpoints.OrgRegistrationToken -replace '\{org\}', $OrgOrRepo
+    $runnerUrl = "$($apiConfig.GitHubBaseUrl)/$OrgOrRepo"
 } else {
-    $tokenUrl = "https://api.github.com/repos/$OrgOrRepo/actions/runners/registration-token"
-    $runnerUrl = "https://github.com/$OrgOrRepo"
+    $tokenEndpoint = $apiConfig.Endpoints.RepoRegistrationToken -replace '\{repo\}', $OrgOrRepo
+    $runnerUrl = "$($apiConfig.GitHubBaseUrl)/$OrgOrRepo"
 }
+
+$tokenUrl = $apiConfig.ApiBaseUrl + $tokenEndpoint
 
 try {
     $response = Invoke-RestMethod -Uri $tokenUrl -Method Post -Headers @{
-        "Accept" = "application/vnd.github+json"
+        "Accept" = $apiConfig.Headers.Accept
         "Authorization" = "Bearer $Token"
-        "X-GitHub-Api-Version" = "2022-11-28"
+        "X-GitHub-Api-Version" = $apiConfig.Headers.ApiVersion
     }
     $registrationToken = $response.token
     Write-Log "Successfully obtained registration token" "SUCCESS"
