@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Sets up a self-hosted GitHub Actions runner for ActionRunner infrastructure.
 

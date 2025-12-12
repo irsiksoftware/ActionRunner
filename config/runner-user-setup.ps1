@@ -1,4 +1,4 @@
-# GitHub Actions Runner - Secure Service Account Setup
+﻿# GitHub Actions Runner - Secure Service Account Setup
 # This script creates a dedicated Windows user account with minimal permissions for running the GitHub Actions runner service
 
 #Requires -RunAsAdministrator
@@ -32,6 +32,8 @@
     - Follow your organization's password management policies
 #>
 
+# Suppress PSScriptAnalyzer warning - ConvertTo-SecureString with plaintext is required for creating local user accounts
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute('PSAvoidUsingConvertToSecureStringWithPlainText', '', Justification = 'Required for creating local user accounts')]
 [CmdletBinding()]
 param(
     [Parameter(Mandatory=$false)]
@@ -114,33 +116,33 @@ function New-SecurePassword {
 # Create the service account
 function New-RunnerServiceAccount {
     param(
-        [string]$Username,
-        [string]$Password
+        [string]$AccountName,
+        [string]$AccountPassword
     )
 
-    Write-Info "Creating service account: $Username"
+    Write-Info "Creating service account: $AccountName"
 
     # Check if user already exists
-    $existingUser = Get-LocalUser -Name $Username -ErrorAction SilentlyContinue
+    $existingUser = Get-LocalUser -Name $AccountName -ErrorAction SilentlyContinue
     if ($existingUser) {
-        Write-Warning "User '$Username' already exists. Do you want to reconfigure? (Y/N)"
+        Write-Warning "User '$AccountName' already exists. Do you want to reconfigure? (Y/N)"
         $response = Read-Host
         if ($response -ne 'Y') {
             Write-Info "Skipping user creation"
             return $false
         }
         Write-Info "Removing existing user..."
-        Remove-LocalUser -Name $Username -ErrorAction SilentlyContinue
+        Remove-LocalUser -Name $AccountName -ErrorAction SilentlyContinue
     }
 
     if ($DryRun) {
-        Write-Info "[DRY RUN] Would create user: $Username"
+        Write-Info "[DRY RUN] Would create user: $AccountName"
         return $true
     }
 
     # Create the user account
-    $securePassword = ConvertTo-SecureString $Password -AsPlainText -Force
-    New-LocalUser -Name $Username `
+    $securePassword = ConvertTo-SecureString $AccountPassword -AsPlainText -Force
+    New-LocalUser -Name $AccountName `
                   -Password $securePassword `
                   -Description "GitHub Actions Runner Service Account - Limited Permissions" `
                   -PasswordNeverExpires `
@@ -153,7 +155,7 @@ function New-RunnerServiceAccount {
     # Uncomment if you want to prevent interactive login
     # Write-Info "Configuring user rights..."
     # secedit /export /cfg C:\Windows\Temp\secpol.cfg | Out-Null
-    # (Get-Content C:\Windows\Temp\secpol.cfg) -replace "SeDenyInteractiveLogonRight = ", "SeDenyInteractiveLogonRight = $Username," | Set-Content C:\Windows\Temp\secpol.cfg
+    # (Get-Content C:\Windows\Temp\secpol.cfg) -replace "SeDenyInteractiveLogonRight = ", "SeDenyInteractiveLogonRight = $AccountName," | Set-Content C:\Windows\Temp\secpol.cfg
     # secedit /configure /db C:\Windows\security\local.sdb /cfg C:\Windows\Temp\secpol.cfg /areas USER_RIGHTS | Out-Null
     # Remove-Item C:\Windows\Temp\secpol.cfg
 
@@ -212,8 +214,8 @@ function Set-RunnerPermissions {
 # Configure Windows service to run as the service account
 function Set-RunnerServiceAccount {
     param(
-        [string]$Username,
-        [string]$Password
+        [string]$AccountName,
+        [string]$AccountPassword
     )
 
     Write-Info "Searching for GitHub Actions Runner service..."
@@ -243,13 +245,13 @@ function Set-RunnerServiceAccount {
 
         # Configure service to run as the service account
         $serviceName = $service.Name
-        $credential = ".\$Username"
+        $credential = ".\$AccountName"
 
         # Use sc.exe to change the service account
-        $result = sc.exe config $serviceName obj= $credential password= $Password
+        $result = sc.exe config $serviceName obj= $credential password= $AccountPassword
 
         if ($LASTEXITCODE -eq 0) {
-            Write-Success "Service configured to run as $Username"
+            Write-Success "Service configured to run as $AccountName"
 
             # Grant "Log on as a service" right
             Write-Info "Granting 'Log on as a service' right..."
@@ -259,7 +261,7 @@ function Set-RunnerServiceAccount {
             $userRight = "SeServiceLogonRight"
 
             # Add user to the service logon right
-            $newContent = $content -replace "($userRight = .*)", "`$1,$Username"
+            $newContent = $content -replace "($userRight = .*)", "`$1,$AccountName"
             $newContent | Set-Content $tempFile
 
             secedit /configure /db secedit.sdb /cfg $tempFile /areas USER_RIGHTS | Out-Null
@@ -281,8 +283,8 @@ function Set-RunnerServiceAccount {
 # Save password securely
 function Save-ServiceAccountPassword {
     param(
-        [string]$Username,
-        [string]$Password
+        [string]$AccountName,
+        [string]$AccountPassword
     )
 
     $outputFile = Join-Path $PSScriptRoot "runner-credentials.txt"
@@ -291,8 +293,8 @@ function Save-ServiceAccountPassword {
 GitHub Actions Runner Service Account Credentials
 ================================================
 
-Username: $Username
-Password: $Password
+Username: $AccountName
+Password: $AccountPassword
 
 IMPORTANT SECURITY NOTES:
 1. Store this password in a secure password manager (e.g., 1Password, LastPass, Azure Key Vault)
@@ -343,17 +345,17 @@ function Main {
     Write-Success "Secure password generated"
 
     # Create service account
-    $userCreated = New-RunnerServiceAccount -Username $Username -Password $password
+    $userCreated = New-RunnerServiceAccount -AccountName $Username -AccountPassword $password
 
     if ($userCreated) {
         # Configure file system permissions
         Set-RunnerPermissions -Username $Username -RunnerPath $RunnerPath
 
         # Save credentials
-        Save-ServiceAccountPassword -Username $Username -Password $password
+        Save-ServiceAccountPassword -AccountName $Username -AccountPassword $password
 
         # Configure service (if exists)
-        Set-RunnerServiceAccount -Username $Username -Password $password
+        Set-RunnerServiceAccount -AccountName $Username -AccountPassword $password
 
         Write-Host ""
         Write-Host "========================================" -ForegroundColor Green

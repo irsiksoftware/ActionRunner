@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Sets up a Linux GitHub Actions runner inside WSL2 Ubuntu.
 
