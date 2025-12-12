@@ -289,29 +289,29 @@ function Save-ServiceAccountPassword {
 
     $outputFile = Join-Path $PSScriptRoot "runner-credentials.txt"
 
-    $content = @"
-GitHub Actions Runner Service Account Credentials
-================================================
-
-Username: $AccountName
-Password: $AccountPassword
-
-IMPORTANT SECURITY NOTES:
-1. Store this password in a secure password manager (e.g., 1Password, LastPass, Azure Key Vault)
-2. DELETE this file after storing the password securely
-3. Never commit this file to version control
-4. Rotate this password every 90 days per security policy
-5. This account should only be used for the GitHub Actions Runner service
-
-Created: $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
-
-Next Steps:
-1. Store password in password manager
-2. Delete this file: Remove-Item "$outputFile"
-3. Configure the runner: .\config.cmd
-4. Test the runner service
-
-"@
+    $content = @(
+        "GitHub Actions Runner Service Account Credentials",
+        "================================================",
+        "",
+        "Username: $AccountName",
+        "Password: $AccountPassword",
+        "",
+        "IMPORTANT SECURITY NOTES:",
+        "1. Store this password in a secure password manager (e.g., 1Password, LastPass, Azure Key Vault)",
+        "2. DELETE this file after storing the password securely",
+        "3. Never commit this file to version control",
+        "4. Rotate this password every 90 days per security policy",
+        "5. This account should only be used for the GitHub Actions Runner service",
+        "",
+        "Created: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')",
+        "",
+        "Next Steps:",
+        "1. Store password in password manager",
+        "2. Delete this file: Remove-Item `"$outputFile`"",
+        "3. Configure the runner: .\config.cmd",
+        "4. Test the runner service",
+        ""
+    ) -join "`n"
 
     if ($DryRun) {
         Write-Info "[DRY RUN] Would save credentials to: $outputFile"
