@@ -7,6 +7,10 @@
     It downloads the runner software, configures it with the specified labels,
     and optionally installs it as a Windows service.
 
+    By default, labels are auto-detected based on installed software and capabilities.
+    This auto-detection can be disabled with -AutoDetectLabels:$false, in which case
+    the static default labels will be used.
+
 .PARAMETER OrgOrRepo
     The organization name (e.g., "myorg") or full repository path (e.g., "owner/repo")
 
@@ -19,8 +23,13 @@
     Custom name for the runner (default: hostname)
 
 .PARAMETER Labels
-    Comma-separated list of labels for the runner
-    Default: "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker,desktop"
+    Comma-separated list of labels for the runner.
+    If not specified and AutoDetectLabels is enabled, labels are auto-detected.
+    If not specified and AutoDetectLabels is disabled, uses default static labels.
+
+.PARAMETER AutoDetectLabels
+    Enable automatic detection of runner capabilities to generate labels.
+    Default: $true. Set to $false to use static default labels.
 
 .PARAMETER WorkFolder
     Working directory for the runner (default: C:\actions-runner)
@@ -33,9 +42,15 @@
 
 .EXAMPLE
     .\register-runner.ps1 -OrgOrRepo "myorg" -Token "ghp_xxx" -IsOrg -InstallService
+    Registers with auto-detected labels based on installed capabilities.
 
 .EXAMPLE
     .\register-runner.ps1 -OrgOrRepo "owner/repo" -Token "ghp_xxx" -Labels "self-hosted,windows,dotnet"
+    Registers with explicitly specified labels (auto-detection skipped).
+
+.EXAMPLE
+    .\register-runner.ps1 -OrgOrRepo "myorg" -Token "ghp_xxx" -AutoDetectLabels:$false
+    Registers with static default labels (auto-detection disabled).
 
 .NOTES
     Requires PowerShell 5.1+ and admin privileges for service installation
@@ -54,7 +69,10 @@ param(
     [string]$RunnerName = $env:COMPUTERNAME,
 
     [Parameter(Mandatory = $false)]
-    [string]$Labels = "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker,desktop",
+    [string]$Labels,
+
+    [Parameter(Mandatory = $false)]
+    [bool]$AutoDetectLabels = $true,
 
     [Parameter(Mandatory = $false)]
     [string]$WorkFolder = "C:\actions-runner",
@@ -67,6 +85,12 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+
+# Get script directory for calling detect-capabilities.ps1
+$ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Static default labels (used when auto-detection is disabled or fails)
+$StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity-pool,gpu-cuda,docker,desktop"
 
 # Logging function
 function Write-Log {
@@ -82,6 +106,48 @@ function Write-Log {
 }
 
 Write-Log "Starting GitHub Actions runner registration" "INFO"
+
+# Determine labels to use
+if ($Labels) {
+    # Labels explicitly provided, use them directly
+    Write-Log "Using explicitly provided labels" "INFO"
+}
+elseif ($AutoDetectLabels) {
+    # Auto-detect labels based on runner capabilities
+    Write-Log "Auto-detecting runner capabilities..." "INFO"
+
+    $detectScript = Join-Path $ScriptDir "detect-capabilities.ps1"
+    if (Test-Path $detectScript) {
+        try {
+            # Run capability detection and capture the returned labels string
+            $detectedLabels = & $detectScript -IncludeBase $true 2>&1 | Select-Object -Last 1
+
+            if ($detectedLabels -and $detectedLabels -match '^[a-zA-Z0-9_,-]+$') {
+                $Labels = $detectedLabels
+                Write-Log "Auto-detected labels: $Labels" "SUCCESS"
+            }
+            else {
+                Write-Log "Capability detection returned unexpected output, using defaults" "WARN"
+                $Labels = $StaticDefaultLabels
+            }
+        }
+        catch {
+            Write-Log "Capability detection failed: $($_.Exception.Message)" "WARN"
+            Write-Log "Falling back to static default labels" "WARN"
+            $Labels = $StaticDefaultLabels
+        }
+    }
+    else {
+        Write-Log "Capability detection script not found at: $detectScript" "WARN"
+        Write-Log "Using static default labels" "WARN"
+        $Labels = $StaticDefaultLabels
+    }
+}
+else {
+    # Auto-detection disabled, use static defaults
+    Write-Log "Label auto-detection disabled, using static defaults" "INFO"
+    $Labels = $StaticDefaultLabels
+}
 
 # Validate token format
 if ($Token -notmatch '^(ghp_|github_pat_)') {
