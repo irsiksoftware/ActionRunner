@@ -49,9 +49,10 @@
 
 .NOTES
     Author: ActionRunner Team
-    Version: 1.1.0
+    Version: 1.2.0
     Created for Issue #168: Ghost Feature - Runner label auto-detection
     Updated for Issue #172: Ghost Feature - AI capability detection integration
+    Updated for Issue #185: Centralized runner labels via RunnerLabels.psm1 module
 #>
 
 [CmdletBinding()]
@@ -70,6 +71,16 @@ $ErrorActionPreference = 'Continue'
 
 # Get script directory
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Import centralized label definitions
+$ModulesDir = Join-Path (Split-Path -Parent $ScriptDir) "modules"
+Import-Module (Join-Path $ModulesDir "RunnerLabels.psm1") -Force
+
+# Get label constants from the module
+$BaseLabels = Get-BaseLabels
+$CapabilityLabels = Get-CapabilityLabels
+$CapabilityMappings = Get-CapabilityMappings
+$AICapabilityMappings = Get-AICapabilityMappings
 
 # Results tracking
 $script:Results = @{
@@ -187,10 +198,13 @@ function Test-GpuCapability {
         Check for GPU/CUDA capability
     #>
 
+    $gpuMapping = $CapabilityMappings['gpu']
+    $gpuLabel = $CapabilityLabels.GpuCuda
+
     $checkResult = @{
-        name = "GPU/CUDA"
+        name = $gpuMapping.Name
         script = "nvidia-smi"
-        label = "gpu-cuda"
+        label = $gpuLabel
         available = $false
         details = ""
         error = $null
@@ -206,7 +220,7 @@ function Test-GpuCapability {
             if ($LASTEXITCODE -eq 0 -and $gpuInfo) {
                 $checkResult.available = $true
                 $checkResult.details = "NVIDIA GPU: $($gpuInfo.ToString().Trim())"
-                Write-StatusMessage "GPU/CUDA - Available (label: gpu-cuda)" -Status "OK" -Color Green
+                Write-StatusMessage "GPU/CUDA - Available (label: $gpuLabel)" -Status "OK" -Color Green
                 $script:Results.checks += $checkResult
                 return $true
             }
@@ -219,7 +233,7 @@ function Test-GpuCapability {
             if ($LASTEXITCODE -eq 0 -and $cudaCheck -match 'cuda') {
                 $checkResult.available = $true
                 $checkResult.details = "CUDA available via PyTorch"
-                Write-StatusMessage "GPU/CUDA - Available via PyTorch (label: gpu-cuda)" -Status "OK" -Color Green
+                Write-StatusMessage "GPU/CUDA - Available via PyTorch (label: $gpuLabel)" -Status "OK" -Color Green
                 $script:Results.checks += $checkResult
                 return $true
             }
@@ -243,10 +257,13 @@ function Test-PythonCapability {
         Check for Python capability (simplified check)
     #>
 
+    $pythonMapping = $CapabilityMappings['python']
+    $pythonLabel = $CapabilityLabels.Python
+
     $checkResult = @{
-        name = "Python"
+        name = $pythonMapping.Name
         script = "python --version"
-        label = "python"
+        label = $pythonLabel
         available = $false
         details = ""
         error = $null
@@ -261,7 +278,7 @@ function Test-PythonCapability {
             if ($LASTEXITCODE -eq 0 -and $version -match 'Python (\d+\.\d+)') {
                 $checkResult.available = $true
                 $checkResult.details = $version.ToString().Trim()
-                Write-StatusMessage "Python - $($checkResult.details) (label: python)" -Status "OK" -Color Green
+                Write-StatusMessage "Python - $($checkResult.details) (label: $pythonLabel)" -Status "OK" -Color Green
                 $script:Results.checks += $checkResult
                 return $true
             }
@@ -292,68 +309,67 @@ if (-not $JsonOutput) {
 
 # Add base labels
 if ($IncludeBase) {
-    $script:Results.labels += "self-hosted"
+    $script:Results.labels += $BaseLabels.SelfHosted
 
-    # Detect OS
-    if ($IsWindows -or $env:OS -match 'Windows' -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
-        $script:Results.labels += "windows"
-        $script:Results.capabilities["os"] = "windows"
-    }
-    elseif ($IsLinux) {
-        $script:Results.labels += "linux"
-        $script:Results.capabilities["os"] = "linux"
-    }
-    elseif ($IsMacOS) {
-        $script:Results.labels += "macos"
-        $script:Results.capabilities["os"] = "macos"
+    # Detect OS using centralized function and labels
+    $osLabel = Get-OSLabel
+    if ($osLabel) {
+        $script:Results.labels += $osLabel
+        $script:Results.capabilities["os"] = $osLabel
     }
 }
 
 # Check .NET capability
-if (Test-CapabilityScript -Name ".NET SDK" -ScriptName "verify-dotnet.ps1" -Label "dotnet") {
-    $script:Results.labels += "dotnet"
+$dotnetMapping = $CapabilityMappings['dotnet']
+if (Test-CapabilityScript -Name $dotnetMapping.Name -ScriptName $dotnetMapping.Script -Label $dotnetMapping.Label) {
+    $script:Results.labels += $CapabilityLabels.DotNet
     $script:Results.capabilities["dotnet"] = $true
 }
 
 # Check Python capability (simplified check, verify-pip.ps1 is more comprehensive)
 if (Test-PythonCapability) {
-    $script:Results.labels += "python"
+    $script:Results.labels += $CapabilityLabels.Python
     $script:Results.capabilities["python"] = $true
 }
 
 # Check Unity capability
-if (Test-CapabilityScript -Name "Unity" -ScriptName "verify-unity.ps1" -Label "unity-pool") {
-    $script:Results.labels += "unity-pool"
+$unityMapping = $CapabilityMappings['unity']
+if (Test-CapabilityScript -Name $unityMapping.Name -ScriptName $unityMapping.Script -Label $unityMapping.Label) {
+    $script:Results.labels += $CapabilityLabels.Unity
     $script:Results.capabilities["unity"] = $true
 }
 
 # Check Docker capability
-if (Test-CapabilityScript -Name "Docker" -ScriptName "verify-docker.ps1" -Label "docker") {
-    $script:Results.labels += "docker"
+$dockerMapping = $CapabilityMappings['docker']
+if (Test-CapabilityScript -Name $dockerMapping.Name -ScriptName $dockerMapping.Script -Label $dockerMapping.Label) {
+    $script:Results.labels += $CapabilityLabels.Docker
     $script:Results.capabilities["docker"] = $true
 }
 
 # Check Desktop capability (MAUI/WPF)
-if (Test-CapabilityScript -Name "Desktop (MAUI/WPF)" -ScriptName "verify-desktop.ps1" -Label "desktop") {
-    $script:Results.labels += "desktop"
+$desktopMapping = $CapabilityMappings['desktop']
+if (Test-CapabilityScript -Name $desktopMapping.Name -ScriptName $desktopMapping.Script -Label $desktopMapping.Label) {
+    $script:Results.labels += $CapabilityLabels.Desktop
     $script:Results.capabilities["desktop"] = $true
 }
 
 # Check Mobile capability
-if (Test-CapabilityScript -Name "Mobile Development" -ScriptName "verify-mobile.ps1" -Label "mobile") {
-    $script:Results.labels += "mobile"
+$mobileMapping = $CapabilityMappings['mobile']
+if (Test-CapabilityScript -Name $mobileMapping.Name -ScriptName $mobileMapping.Script -Label $mobileMapping.Label) {
+    $script:Results.labels += $CapabilityLabels.Mobile
     $script:Results.capabilities["mobile"] = $true
 }
 
 # Check GPU/CUDA capability
 if (Test-GpuCapability) {
-    $script:Results.labels += "gpu-cuda"
+    $script:Results.labels += $CapabilityLabels.GpuCuda
     $script:Results.capabilities["gpu"] = $true
 }
 
 # Check Node.js capability
-if (Test-CapabilityScript -Name "Node.js" -ScriptName "verify-nodejs.ps1" -Label "nodejs") {
-    $script:Results.labels += "nodejs"
+$nodejsMapping = $CapabilityMappings['nodejs']
+if (Test-CapabilityScript -Name $nodejsMapping.Name -ScriptName $nodejsMapping.Script -Label $nodejsMapping.Label) {
+    $script:Results.labels += $CapabilityLabels.NodeJs
     $script:Results.capabilities["nodejs"] = $true
 }
 
@@ -369,45 +385,18 @@ $aiComponents = @()
 
 Write-StatusMessage "Checking AI/LLM capabilities..." -Status "CHECK" -Color Cyan
 
-# Check OpenAI SDK
-if (Test-CapabilityScript -Name "OpenAI SDK" -ScriptName "verify-openai.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "openai"
-}
-
-# Check LangChain
-if (Test-CapabilityScript -Name "LangChain" -ScriptName "verify-langchain.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "langchain"
-}
-
-# Check Embedding Models
-if (Test-CapabilityScript -Name "Embedding Models" -ScriptName "verify-embedding-models.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "embeddings"
-}
-
-# Check Pinecone Vector DB
-if (Test-CapabilityScript -Name "Pinecone" -ScriptName "verify-pinecone.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "pinecone"
-}
-
-# Check Weaviate Vector DB
-if (Test-CapabilityScript -Name "Weaviate" -ScriptName "verify-weaviate.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "weaviate"
-}
-
-# Check vLLM/TGI Model Serving
-if (Test-CapabilityScript -Name "vLLM/TGI" -ScriptName "verify-vllm-tgi.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "vllm-tgi"
+# Iterate through AI capability mappings from the centralized module
+foreach ($aiKey in $AICapabilityMappings.Keys) {
+    $aiMapping = $AICapabilityMappings[$aiKey]
+    if (Test-CapabilityScript -Name $aiMapping.Name -ScriptName $aiMapping.Script -Label $aiMapping.Label) {
+        $aiDetected = $true
+        $aiComponents += $aiKey
+    }
 }
 
 # Add AI label if any AI capability was detected
 if ($aiDetected) {
-    $script:Results.labels += "ai"
+    $script:Results.labels += $CapabilityLabels.AI
     $script:Results.capabilities["ai"] = $true
     $script:Results.capabilities["ai_components"] = $aiComponents
     Write-StatusMessage "AI capability detected (components: $($aiComponents -join ', '))" -Status "OK" -Color Green
