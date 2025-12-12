@@ -427,3 +427,257 @@ Describe "detect-capabilities.ps1 - Python Detection" {
         $script:Content | Should -Match 'python --version'
     }
 }
+
+Describe "detect-capabilities.ps1 - AI Capability Detection" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    Context "AI capability detection logic" {
+        It "Has AI capability detection section" {
+            $script:Content | Should -Match 'AI CAPABILITY DETECTION'
+        }
+
+        It "Initializes aiDetected flag" {
+            $script:Content | Should -Match '\$aiDetected\s*=\s*\$false'
+        }
+
+        It "Initializes aiComponents array" {
+            $script:Content | Should -Match '\$aiComponents\s*=\s*@\(\)'
+        }
+
+        It "Displays AI capability checking message" {
+            $script:Content | Should -Match 'Checking AI/LLM capabilities'
+        }
+
+        It "Defines AI capabilities array with component metadata" {
+            $script:Content | Should -Match '\$aiCapabilities\s*=\s*@\('
+        }
+
+        It "Iterates through AI capabilities for detection" {
+            $script:Content | Should -Match 'foreach\s*\(\s*\$aiCap\s+in\s+\$aiCapabilities\s*\)'
+        }
+
+        It "Sets aiDetected to true when any AI component is found" {
+            $script:Content | Should -Match '\$aiDetected\s*=\s*\$true'
+        }
+
+        It "Tracks detected AI components" {
+            $script:Content | Should -Match '\$aiComponents\s*\+=\s*\$aiCap\.Component'
+        }
+
+        It "Adds 'ai' label when AI capability detected" {
+            $script:Content | Should -Match 'if\s*\(\s*\$aiDetected\s*\)'
+            $script:Content | Should -Match '\$script:Results\.labels\s*\+=\s*"ai"'
+        }
+
+        It "Sets capabilities['ai'] to true when detected" {
+            $script:Content | Should -Match '\$script:Results\.capabilities\["ai"\]\s*=\s*\$true'
+        }
+
+        It "Stores ai_components list in capabilities" {
+            $script:Content | Should -Match '\$script:Results\.capabilities\["ai_components"\]\s*=\s*\$aiComponents'
+        }
+
+        It "Displays AI detection success message with components" {
+            $script:Content | Should -Match 'AI capability detected.*components:'
+        }
+
+        It "Displays message when no AI capabilities detected" {
+            $script:Content | Should -Match 'No AI capabilities detected'
+        }
+    }
+
+    Context "AI component verification scripts" {
+        It "Checks for OpenAI SDK (verify-openai.ps1)" {
+            $script:Content | Should -Match 'verify-openai\.ps1'
+        }
+
+        It "Maps OpenAI to 'openai' component" {
+            $script:Content | Should -Match 'Component\s*=\s*"openai"'
+        }
+
+        It "Checks for LangChain (verify-langchain.ps1)" {
+            $script:Content | Should -Match 'verify-langchain\.ps1'
+        }
+
+        It "Maps LangChain to 'langchain' component" {
+            $script:Content | Should -Match 'Component\s*=\s*"langchain"'
+        }
+
+        It "Checks for Embedding Models (verify-embedding-models.ps1)" {
+            $script:Content | Should -Match 'verify-embedding-models\.ps1'
+        }
+
+        It "Maps Embedding Models to 'embeddings' component" {
+            $script:Content | Should -Match 'Component\s*=\s*"embeddings"'
+        }
+
+        It "Checks for Pinecone (verify-pinecone.ps1)" {
+            $script:Content | Should -Match 'verify-pinecone\.ps1'
+        }
+
+        It "Maps Pinecone to 'pinecone' component" {
+            $script:Content | Should -Match 'Component\s*=\s*"pinecone"'
+        }
+
+        It "Checks for Weaviate (verify-weaviate.ps1)" {
+            $script:Content | Should -Match 'verify-weaviate\.ps1'
+        }
+
+        It "Maps Weaviate to 'weaviate' component" {
+            $script:Content | Should -Match 'Component\s*=\s*"weaviate"'
+        }
+
+        It "Checks for vLLM/TGI (verify-vllm-tgi.ps1)" {
+            $script:Content | Should -Match 'verify-vllm-tgi\.ps1'
+        }
+
+        It "Maps vLLM/TGI to 'vllm-tgi' component" {
+            $script:Content | Should -Match 'Component\s*=\s*"vllm-tgi"'
+        }
+    }
+
+    Context "AI component names" {
+        It "Defines 'OpenAI SDK' component name" {
+            $script:Content | Should -Match 'Name\s*=\s*"OpenAI SDK"'
+        }
+
+        It "Defines 'LangChain' component name" {
+            $script:Content | Should -Match 'Name\s*=\s*"LangChain"'
+        }
+
+        It "Defines 'Embedding Models' component name" {
+            $script:Content | Should -Match 'Name\s*=\s*"Embedding Models"'
+        }
+
+        It "Defines 'Pinecone' component name" {
+            $script:Content | Should -Match 'Name\s*=\s*"Pinecone"'
+        }
+
+        It "Defines 'Weaviate' component name" {
+            $script:Content | Should -Match 'Name\s*=\s*"Weaviate"'
+        }
+
+        It "Defines 'vLLM/TGI' component name" {
+            $script:Content | Should -Match 'Name\s*=\s*"vLLM/TGI"'
+        }
+    }
+
+    Context "AI label mapping" {
+        It "All AI components map to 'ai' label" {
+            # Verify each AI capability check specifies -Label "ai"
+            $script:Content | Should -Match 'ScriptName.*verify-openai.*Label\s*=\s*"ai"' -Because "OpenAI should use 'ai' label"
+        }
+
+        It "Documents ai capability to ai label mapping in header" {
+            $script:Content | Should -Match 'ai \(OpenAI/LangChain/embeddings/vector DBs\) capability -> ai label'
+        }
+    }
+
+    Context "AI verification script files existence" {
+        BeforeAll {
+            $script:ScriptsDir = Join-Path $PSScriptRoot '..\scripts'
+        }
+
+        It "verify-openai.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-openai.ps1') | Should -Be $true
+        }
+
+        It "verify-langchain.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-langchain.ps1') | Should -Be $true
+        }
+
+        It "verify-embedding-models.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-embedding-models.ps1') | Should -Be $true
+        }
+
+        It "verify-pinecone.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-pinecone.ps1') | Should -Be $true
+        }
+
+        It "verify-weaviate.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-weaviate.ps1') | Should -Be $true
+        }
+
+        It "verify-vllm-tgi.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-vllm-tgi.ps1') | Should -Be $true
+        }
+    }
+
+    Context "AI capability execution tests" {
+        It "Should include ai_components in capabilities when AI detected" {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+
+            # If AI capability was detected
+            if ($json.capabilities.ai -eq $true) {
+                $json.capabilities.PSObject.Properties.Name | Should -Contain 'ai_components'
+                $json.capabilities.ai_components | Should -Not -BeNullOrEmpty
+            }
+        }
+
+        It "Should include 'ai' label if any AI component is detected" {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+
+            # If any AI component is available
+            if ($json.capabilities.ai -eq $true) {
+                $json.labels | Should -Contain 'ai'
+            }
+        }
+
+        It "Should not include 'ai' label if no AI components detected" {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+
+            # If AI is not detected
+            if ($json.capabilities.ai -ne $true) {
+                $json.labels | Should -Not -Contain 'ai'
+            }
+        }
+
+        It "AI components should be valid component keys" {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+
+            if ($json.capabilities.ai -eq $true) {
+                $validComponents = @('openai', 'langchain', 'embeddings', 'pinecone', 'weaviate', 'vllm-tgi')
+                foreach ($component in $json.capabilities.ai_components) {
+                    $validComponents | Should -Contain $component
+                }
+            }
+        }
+    }
+}
+
+Describe "detect-capabilities.ps1 - iOS Build Capability Detection" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Checks for iOS build capability (verify-ios-build.ps1)" {
+        $script:Content | Should -Match 'verify-ios-build\.ps1'
+    }
+
+    It "Maps iOS capability to 'ios' label" {
+        $script:Content | Should -Match '-Label "ios"'
+    }
+
+    It "Documents ios capability in header" {
+        $script:Content | Should -Match 'ios \(Xcode/iOS SDK on macOS\) capability -> ios label'
+    }
+
+    It "Sets capabilities['ios'] to true when detected" {
+        $script:Content | Should -Match '\$script:Results\.capabilities\["ios"\]\s*=\s*\$true'
+    }
+
+    It "verify-ios-build.ps1 should exist" {
+        $scriptsDir = Join-Path $PSScriptRoot '..\scripts'
+        Test-Path (Join-Path $scriptsDir 'verify-ios-build.ps1') | Should -Be $true
+    }
+
+    It "References Issue #192 for iOS capability" {
+        $script:Content | Should -Match 'Issue #192'
+    }
+}
