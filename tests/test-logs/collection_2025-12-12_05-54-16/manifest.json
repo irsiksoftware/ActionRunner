@@ -1,0 +1,14 @@
+{
+  "CollectionTime": "2025-12-12_05-54-16",
+  "OutputPath": "C:\\Code\\ActionRunner-issue-158\\tests\\test-logs\\collection_2025-12-12_05-54-16",
+  "DaysCollected": 1,
+  "Summary": {
+    "WindowsEvents": {
+      "IsPresent": false
+    },
+    "PerformanceSnapshot": true,
+    "SecurityAudit": true,
+    "RunnerLogs": 553,
+    "JobLogs": 0
+  }
+}
