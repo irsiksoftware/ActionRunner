@@ -63,7 +63,7 @@ Write-Host ""
 Write-Host "Checking Docker..." -ForegroundColor Yellow
 try {
     docker version | Out-Null
-    Write-Host "✓ Docker is running" -ForegroundColor Green
+    Write-Host "[OK] Docker is running" -ForegroundColor Green
 } catch {
     Write-Error "Docker is not running. Please start Docker Desktop and try again."
     exit 1
@@ -90,7 +90,7 @@ if (-not $NoBuild) {
             throw "Docker build failed with exit code $LASTEXITCODE"
         }
         Write-Host ""
-        Write-Host "✓ Image built successfully: $LocalImageName" -ForegroundColor Green
+        Write-Host "[OK] Image built successfully: $LocalImageName" -ForegroundColor Green
     } catch {
         Write-Error "Failed to build Docker image: $_"
         exit 1
@@ -106,7 +106,7 @@ if ($Registry -and ($LocalImageName -ne $FullImageName)) {
         Write-Error "Failed to tag image"
         exit 1
     }
-    Write-Host "✓ Tagged as: $FullImageName" -ForegroundColor Green
+    Write-Host "[OK] Tagged as: $FullImageName" -ForegroundColor Green
 }
 
 # Push to registry
@@ -122,7 +122,7 @@ if ($Registry) {
             throw "Docker push failed"
         }
         Write-Host ""
-        Write-Host "✓ Image pushed successfully!" -ForegroundColor Green
+        Write-Host "[OK] Image pushed successfully!" -ForegroundColor Green
         Write-Host ""
         Write-Host "Use in workflows with:" -ForegroundColor Cyan
         Write-Host "  container:" -ForegroundColor White
@@ -153,4 +153,4 @@ Write-Host "Interactive shell:" -ForegroundColor Yellow
 Write-Host "  docker run --rm -it $LocalImageName" -ForegroundColor White
 
 Write-Host ""
-Write-Host "✓ Build complete!" -ForegroundColor Green
+Write-Host "[OK] Build complete!" -ForegroundColor Green

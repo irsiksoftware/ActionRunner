@@ -64,22 +64,22 @@ function Write-Header {
 
 function Write-Success {
     param([string]$Text)
-    Write-Host "✅ $Text" -ForegroundColor Green
+    Write-Host "[OK] $Text" -ForegroundColor Green
 }
 
 function Write-Error2 {
     param([string]$Text)
-    Write-Host "❌ $Text" -ForegroundColor Red
+    Write-Host "[FAIL] $Text" -ForegroundColor Red
 }
 
 function Write-Warning2 {
     param([string]$Text)
-    Write-Host "⚠️  $Text" -ForegroundColor Yellow
+    Write-Host "[WARN] $Text" -ForegroundColor Yellow
 }
 
 function Write-Info {
     param([string]$Text)
-    Write-Host "ℹ️  $Text" -ForegroundColor Cyan
+    Write-Host "[INFO] $Text" -ForegroundColor Cyan
 }
 
 # ==============================================================================
@@ -99,7 +99,7 @@ function Get-WindowsRunnerStatus {
 
     foreach ($svc in $service) {
         $statusColor = if ($svc.Status -eq 'Running') { 'Green' } else { 'Red' }
-        $statusIcon = if ($svc.Status -eq 'Running') { '✅' } else { '❌' }
+        $statusIcon = if ($svc.Status -eq 'Running') { '[OK]' } else { '[FAIL]' }
 
         Write-Host "$statusIcon Name:      " -NoNewline
         Write-Host $svc.Name
@@ -294,9 +294,9 @@ function Get-LinuxRunnerLogs {
 # ==============================================================================
 
 Write-Host ""
-Write-Host "╔═══════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   GitHub Actions Runner Manager (Dual Setup) ║" -ForegroundColor Cyan
-Write-Host "╚═══════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "+===============================================+" -ForegroundColor Cyan
+Write-Host "|   GitHub Actions Runner Manager (Dual Setup) |" -ForegroundColor Cyan
+Write-Host "+===============================================+" -ForegroundColor Cyan
 
 $doWindows = ($Runner -eq 'windows' -or $Runner -eq 'both')
 $doLinux = ($Runner -eq 'linux' -or $Runner -eq 'both')
@@ -307,7 +307,7 @@ switch ($Action) {
         if ($doLinux) { $linuxOk = Get-LinuxRunnerStatus }
 
         Write-Host ""
-        Write-Host "═══════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "===============================================" -ForegroundColor Cyan
 
         if ($doWindows -and $doLinux) {
             if ($windowsOk -and $linuxOk) {

@@ -51,7 +51,7 @@ $VerbosePreference = "Continue"
 # Color output functions
 function Write-Success {
     param([string]$Message)
-    Write-Host "[✓] $Message" -ForegroundColor Green
+    Write-Host "[OK] $Message" -ForegroundColor Green
 }
 
 function Write-Warning {
@@ -66,7 +66,7 @@ function Write-Info {
 
 function Write-Error {
     param([string]$Message)
-    Write-Host "[✗] $Message" -ForegroundColor Red
+    Write-Host "[FAIL] $Message" -ForegroundColor Red
 }
 
 # Validate prerequisites
