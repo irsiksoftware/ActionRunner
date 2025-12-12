@@ -106,7 +106,7 @@ Describe "install-runner.ps1" {
         }
 
         It "Should set ErrorActionPreference to Stop" {
-            $scriptContent | Should -Match "`\$ErrorActionPreference\s*=\s*[`"`']Stop[`"`']"
+            $scriptContent | Should -Match '\$ErrorActionPreference\s*=\s*[''"]Stop[''"]'
         }
 
         It "Should have try-catch blocks" {
@@ -193,7 +193,7 @@ Describe "install-runner.ps1" {
         }
 
         It "Should cleanup installation files" {
-            $scriptContent | Should -Match 'Remove-Item.*\.zip'
+            $scriptContent | Should -Match 'Remove-Item.*\$zipFile'
         }
     }
 
@@ -215,7 +215,9 @@ Describe "install-runner.ps1" {
         }
 
         It "Should request registration token from GitHub API" {
-            $scriptContent | Should -Match 'Invoke-RestMethod.*registration-token'
+            # Checks that the script fetches the registration token from the GitHub API
+            $scriptContent | Should -Match 'api\.github\.com.*/actions/runners/registration-token'
+            $scriptContent | Should -Match 'Invoke-RestMethod.*\$tokenUrl'
         }
 
         It "Should configure runner with proper arguments" {
