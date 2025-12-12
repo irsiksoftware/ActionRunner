@@ -1,4 +1,4 @@
-# GitHub Actions Runner - Secure Service Account Setup
+﻿# GitHub Actions Runner - Secure Service Account Setup
 # This script creates a dedicated Windows user account with minimal permissions for running the GitHub Actions runner service
 
 #Requires -RunAsAdministrator
