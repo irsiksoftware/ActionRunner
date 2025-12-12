@@ -21,6 +21,7 @@
     - mobile (Android/Flutter/React Native) capability -> mobile label
     - gpu/cuda capability -> gpu-cuda label
     - nodejs capability -> nodejs label
+    - ai (OpenAI/LangChain/embeddings/vector DBs) capability -> ai label
 
 .PARAMETER IncludeBase
     Include base labels (self-hosted, windows/linux) in output. Default: $true
@@ -48,8 +49,9 @@
 
 .NOTES
     Author: ActionRunner Team
-    Version: 1.0.0
+    Version: 1.1.0
     Created for Issue #168: Ghost Feature - Runner label auto-detection
+    Updated for Issue #172: Ghost Feature - AI capability detection integration
 #>
 
 [CmdletBinding()]
@@ -353,6 +355,65 @@ if (Test-GpuCapability) {
 if (Test-CapabilityScript -Name "Node.js" -ScriptName "verify-nodejs.ps1" -Label "nodejs") {
     $script:Results.labels += "nodejs"
     $script:Results.capabilities["nodejs"] = $true
+}
+
+# ============================================================================
+# AI CAPABILITY DETECTION
+# ============================================================================
+
+# AI capability is detected if ANY of the AI-related verification scripts pass.
+# This includes: OpenAI SDK, LangChain, embedding models, and vector databases.
+
+$aiDetected = $false
+$aiComponents = @()
+
+Write-StatusMessage "Checking AI/LLM capabilities..." -Status "CHECK" -Color Cyan
+
+# Check OpenAI SDK
+if (Test-CapabilityScript -Name "OpenAI SDK" -ScriptName "verify-openai.ps1" -Label "ai") {
+    $aiDetected = $true
+    $aiComponents += "openai"
+}
+
+# Check LangChain
+if (Test-CapabilityScript -Name "LangChain" -ScriptName "verify-langchain.ps1" -Label "ai") {
+    $aiDetected = $true
+    $aiComponents += "langchain"
+}
+
+# Check Embedding Models
+if (Test-CapabilityScript -Name "Embedding Models" -ScriptName "verify-embedding-models.ps1" -Label "ai") {
+    $aiDetected = $true
+    $aiComponents += "embeddings"
+}
+
+# Check Pinecone Vector DB
+if (Test-CapabilityScript -Name "Pinecone" -ScriptName "verify-pinecone.ps1" -Label "ai") {
+    $aiDetected = $true
+    $aiComponents += "pinecone"
+}
+
+# Check Weaviate Vector DB
+if (Test-CapabilityScript -Name "Weaviate" -ScriptName "verify-weaviate.ps1" -Label "ai") {
+    $aiDetected = $true
+    $aiComponents += "weaviate"
+}
+
+# Check vLLM/TGI Model Serving
+if (Test-CapabilityScript -Name "vLLM/TGI" -ScriptName "verify-vllm-tgi.ps1" -Label "ai") {
+    $aiDetected = $true
+    $aiComponents += "vllm-tgi"
+}
+
+# Add AI label if any AI capability was detected
+if ($aiDetected) {
+    $script:Results.labels += "ai"
+    $script:Results.capabilities["ai"] = $true
+    $script:Results.capabilities["ai_components"] = $aiComponents
+    Write-StatusMessage "AI capability detected (components: $($aiComponents -join ', '))" -Status "OK" -Color Green
+}
+else {
+    Write-StatusMessage "No AI capabilities detected" -Status "FAIL" -Color DarkGray
 }
 
 # ============================================================================
