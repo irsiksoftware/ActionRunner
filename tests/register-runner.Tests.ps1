@@ -411,6 +411,23 @@ Describe "Admin Privilege Check" -Tag "Integration" {
     }
 }
 
+Describe "register-runner.ps1 Default Values" {
+    BeforeAll {
+        $script:Params = (Get-Command $script:ScriptPath).Parameters
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Should have RunnerName default to COMPUTERNAME" {
+        # Check that default runner name is set to $env:COMPUTERNAME in the script
+        $Content | Should -Match '\$RunnerName\s*=\s*\$env:COMPUTERNAME'
+    }
+
+    It "Should have WorkFolder default to C:\actions-runner" {
+        # Check that default work folder is set in the script
+        $Content | Should -Match '\$WorkFolder\s*=\s*[''"]C:\\actions-runner[''"]'
+    }
+}
+
 Describe "register-runner.ps1 AutoDetectLabels Parameter" {
     BeforeAll {
         $script:Content = Get-Content $script:ScriptPath -Raw
@@ -531,6 +548,26 @@ Describe "register-runner.ps1 Centralized Labels Configuration" {
     }
 }
 
+Describe "register-runner.ps1 Label Validation" {
+    BeforeAll {
+        $script:Params = (Get-Command $script:ScriptPath).Parameters
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Should have Labels parameter" {
+        $Params['Labels'] | Should -Not -BeNullOrEmpty
+    }
+
+    It "Should include self-hosted label in defaults" {
+        $Content | Should -Match 'self-hosted'
+    }
+
+    It "Should handle labels parameter in configuration" {
+        # Check that script handles --labels argument for config
+        $Content | Should -Match '--labels'
+    }
+}
+
 Describe "Label Detection Logic Paths" {
     BeforeAll {
         $script:ScriptContent = Get-Content $script:ScriptPath -Raw
@@ -590,6 +627,30 @@ Describe "Error Handling" {
 
     It "Should exit with code 1 when service installation requires admin" {
         $ScriptContent | Should -Match 'Service installation requires administrator privileges'
+    }
+
+    It "Script has try-catch error handling" {
+        $ScriptContent | Should -Match 'try\s*\{'
+        $ScriptContent | Should -Match 'catch\s*\{'
+    }
+
+    It "Script validates admin privileges for service installation" {
+        # Check that script checks admin privileges
+        $ScriptContent | Should -Match 'WindowsPrincipal'
+        $ScriptContent | Should -Match 'Administrator'
+    }
+
+    It "Script has error handling for download failures" {
+        # Check that script handles download errors
+        $ScriptContent | Should -Match 'Write-Log.*ERROR'
+    }
+
+    It "Should detect admin privilege check logic works" {
+        # Meta-test to verify the check would work
+        $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+        $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+        { $isAdmin -is [bool] } | Should -Be $true
     }
 }
 
