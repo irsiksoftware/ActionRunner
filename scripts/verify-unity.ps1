@@ -166,14 +166,40 @@ Test-Requirement -Name "Unity Version Check" -Check {
     }
 
     if ($editorPath) {
-        # Extract version from path
-        $version = $editorPath.FullName -replace '.*\\(\d+\.\d+\.\d+\w+)\\.*', '$1'
-        if ($version -match '\d+\.\d+\.\d+') {
-            $installedVersion = [version]($version -replace 'f.*$', '')
-            $requiredVersion = [version]($MinimumVersion -replace 'f.*$', '')
+        # Query Unity version using command-line arguments
+        $tempLogFile = Join-Path $env:TEMP "unity-version-$(Get-Random).log"
 
-            if ($installedVersion -ge $requiredVersion) {
-                return $version
+        try {
+            # Run Unity with -version argument in batch mode
+            $unityArgs = @(
+                "-batchmode",
+                "-quit",
+                "-version",
+                "-logFile", $tempLogFile
+            )
+
+            $process = Start-Process -FilePath $editorPath.FullName -ArgumentList $unityArgs -Wait -PassThru -NoNewWindow -ErrorAction SilentlyContinue
+
+            # Read the log file to extract version information
+            if (Test-Path $tempLogFile) {
+                $logContent = Get-Content $tempLogFile -Raw -ErrorAction SilentlyContinue
+
+                # Unity logs its version in the format: "Unity X.Y.Zfx (hash)"
+                if ($logContent -match 'Unity\s+(\d+\.\d+\.\d+\w+)') {
+                    $version = $matches[1]
+
+                    $installedVersion = [version]($version -replace 'f.*$', '')
+                    $requiredVersion = [version]($MinimumVersion -replace 'f.*$', '')
+
+                    if ($installedVersion -ge $requiredVersion) {
+                        return $version
+                    }
+                }
+            }
+        } finally {
+            # Cleanup temp log file
+            if (Test-Path $tempLogFile) {
+                Remove-Item -Path $tempLogFile -Force -ErrorAction SilentlyContinue
             }
         }
     }
