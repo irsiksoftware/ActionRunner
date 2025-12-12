@@ -35,6 +35,10 @@
 .PARAMETER Timeout
     Timeout in seconds for each capability check. Default: 60
 
+.PARAMETER GetDefaultLabels
+    Return all possible default labels without running capability detection.
+    Useful for fallback scenarios when detection is disabled or fails.
+
 .EXAMPLE
     .\detect-capabilities.ps1
     Returns: self-hosted,windows,dotnet,docker,desktop
@@ -46,6 +50,10 @@
 .EXAMPLE
     .\detect-capabilities.ps1 -IncludeBase:$false
     Returns only capability labels without base labels
+
+.EXAMPLE
+    .\detect-capabilities.ps1 -GetDefaultLabels
+    Returns all possible labels without running detection (for fallback scenarios)
 
 .NOTES
     Author: ActionRunner Team
@@ -63,13 +71,55 @@ param(
     [switch]$JsonOutput,
 
     [Parameter(Mandatory = $false)]
-    [int]$Timeout = 60
+    [int]$Timeout = 60,
+
+    [Parameter(Mandatory = $false)]
+    [switch]$GetDefaultLabels
 )
 
 $ErrorActionPreference = 'Continue'
 
 # Get script directory
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+
+# Single source of truth for all possible capability labels
+# This is used as the fallback when auto-detection is disabled or fails
+$script:AllCapabilityLabels = @(
+    "dotnet",
+    "python",
+    "unity-pool",
+    "docker",
+    "desktop",
+    "mobile",
+    "gpu-cuda",
+    "nodejs",
+    "ai"
+)
+
+# Handle -GetDefaultLabels: return default labels without running detection
+if ($GetDefaultLabels) {
+    $baseLabels = @()
+    if ($IncludeBase) {
+        $baseLabels += "self-hosted"
+        if ($IsWindows -or $env:OS -match 'Windows' -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
+            $baseLabels += "windows"
+        }
+        elseif ($IsLinux) {
+            $baseLabels += "linux"
+        }
+        elseif ($IsMacOS) {
+            $baseLabels += "macos"
+        }
+    }
+    $allLabels = $baseLabels + $script:AllCapabilityLabels
+    if ($JsonOutput) {
+        @{ labels = $allLabels; labelsString = ($allLabels -join ",") } | ConvertTo-Json
+    }
+    else {
+        return ($allLabels -join ",")
+    }
+    exit 0
+}
 
 # Results tracking
 $script:Results = @{

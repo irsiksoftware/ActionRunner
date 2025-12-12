@@ -61,6 +61,12 @@ Describe "detect-capabilities.ps1 - Parameter Validation" {
         $param = $script:Params | Where-Object { $_.Name.VariablePath.UserPath -eq 'Timeout' }
         $param | Should -Not -BeNullOrEmpty
     }
+
+    It "Has GetDefaultLabels switch parameter" {
+        $param = $script:Params | Where-Object { $_.Name.VariablePath.UserPath -eq 'GetDefaultLabels' }
+        $param | Should -Not -BeNullOrEmpty
+        $param.StaticType.Name | Should -Be 'SwitchParameter'
+    }
 }
 
 Describe "detect-capabilities.ps1 - Function Definitions" {
@@ -425,5 +431,79 @@ Describe "detect-capabilities.ps1 - Python Detection" {
 
     It "Verifies python version" {
         $script:Content | Should -Match 'python --version'
+    }
+}
+
+Describe "detect-capabilities.ps1 - GetDefaultLabels Parameter" {
+    Context "Default labels (single source of truth)" {
+        It "Should return default labels without running detection" {
+            $result = & $script:ScriptPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+            $result | Should -Not -BeNullOrEmpty
+            $result | Should -Match '^[a-zA-Z0-9_,-]+$'
+        }
+
+        It "Should include self-hosted in default labels" {
+            $result = & $script:ScriptPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+            $result -split ',' | Should -Contain 'self-hosted'
+        }
+
+        It "Should include OS label in default labels" {
+            $result = & $script:ScriptPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+            $labels = $result -split ','
+            ($labels -contains 'windows' -or $labels -contains 'linux' -or $labels -contains 'macos') | Should -Be $true
+        }
+
+        It "Should include all capability labels in defaults" {
+            $result = & $script:ScriptPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+            $labels = $result -split ','
+            $labels | Should -Contain 'dotnet'
+            $labels | Should -Contain 'python'
+            $labels | Should -Contain 'unity-pool'
+            $labels | Should -Contain 'docker'
+            $labels | Should -Contain 'desktop'
+            $labels | Should -Contain 'mobile'
+            $labels | Should -Contain 'gpu-cuda'
+            $labels | Should -Contain 'nodejs'
+            $labels | Should -Contain 'ai'
+        }
+
+        It "Should not include base labels when IncludeBase is false" {
+            $result = & $script:ScriptPath -GetDefaultLabels -IncludeBase $false 2>&1 | Select-Object -Last 1
+            $labels = $result -split ','
+            $labels | Should -Not -Contain 'self-hosted'
+            $labels | Should -Not -Contain 'windows'
+            $labels | Should -Not -Contain 'linux'
+            $labels | Should -Not -Contain 'macos'
+        }
+
+        It "Should return JSON when -JsonOutput is specified" {
+            $output = & $script:ScriptPath -GetDefaultLabels -JsonOutput 2>&1 | Out-String
+            { $output | ConvertFrom-Json } | Should -Not -Throw
+            $json = $output | ConvertFrom-Json
+            $json.PSObject.Properties.Name | Should -Contain 'labels'
+            $json.PSObject.Properties.Name | Should -Contain 'labelsString'
+        }
+    }
+
+    Context "Single source of truth for AllCapabilityLabels" {
+        BeforeAll {
+            $script:Content = Get-Content $script:ScriptPath -Raw
+        }
+
+        It "Should define AllCapabilityLabels array" {
+            $script:Content | Should -Match '\$script:AllCapabilityLabels\s*=\s*@\('
+        }
+
+        It "AllCapabilityLabels should contain expected capability labels" {
+            $script:Content | Should -Match '"dotnet"'
+            $script:Content | Should -Match '"python"'
+            $script:Content | Should -Match '"unity-pool"'
+            $script:Content | Should -Match '"docker"'
+            $script:Content | Should -Match '"desktop"'
+            $script:Content | Should -Match '"mobile"'
+            $script:Content | Should -Match '"gpu-cuda"'
+            $script:Content | Should -Match '"nodejs"'
+            $script:Content | Should -Match '"ai"'
+        }
     }
 }

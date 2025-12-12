@@ -9,7 +9,7 @@
 
     By default, labels are auto-detected based on installed software and capabilities.
     This auto-detection can be disabled with -AutoDetectLabels:$false, in which case
-    the static default labels will be used.
+    default labels from detect-capabilities.ps1 will be used.
 
 .PARAMETER OrgOrRepo
     The organization name (e.g., "myorg") or full repository path (e.g., "owner/repo")
@@ -25,11 +25,11 @@
 .PARAMETER Labels
     Comma-separated list of labels for the runner.
     If not specified and AutoDetectLabels is enabled, labels are auto-detected.
-    If not specified and AutoDetectLabels is disabled, uses default static labels.
+    If not specified and AutoDetectLabels is disabled, uses default labels from detect-capabilities.ps1.
 
 .PARAMETER AutoDetectLabels
     Enable automatic detection of runner capabilities to generate labels.
-    Default: $true. Set to $false to use static default labels.
+    Default: $true. Set to $false to use default labels.
 
 .PARAMETER WorkFolder
     Working directory for the runner (default: C:\actions-runner)
@@ -50,7 +50,7 @@
 
 .EXAMPLE
     .\register-runner.ps1 -OrgOrRepo "myorg" -Token "ghp_xxx" -AutoDetectLabels:$false
-    Registers with static default labels (auto-detection disabled).
+    Registers with default labels (auto-detection disabled).
 
 .NOTES
     Requires PowerShell 5.1+ and admin privileges for service installation
@@ -89,8 +89,25 @@ $ErrorActionPreference = "Stop"
 # Get script directory for calling detect-capabilities.ps1
 $ScriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 
-# Static default labels (used when auto-detection is disabled or fails)
-$StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity-pool,gpu-cuda,docker,desktop"
+# Function to get default labels from detect-capabilities.ps1
+# This ensures a single source of truth for label definitions (DRY principle)
+function Get-DefaultLabels {
+    $detectScript = Join-Path $ScriptDir "detect-capabilities.ps1"
+    if (Test-Path $detectScript) {
+        try {
+            $defaultLabels = & $detectScript -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+            if ($defaultLabels -and $defaultLabels -match '^[a-zA-Z0-9_,-]+$') {
+                return $defaultLabels
+            }
+        }
+        catch {
+            Write-Log "Failed to get default labels: $($_.Exception.Message)" "WARN"
+        }
+    }
+    # Absolute fallback if detect-capabilities.ps1 is not available
+    # This should rarely happen as both scripts are in the same directory
+    return "self-hosted,windows"
+}
 
 # Logging function
 function Write-Log {
@@ -128,25 +145,25 @@ elseif ($AutoDetectLabels) {
             }
             else {
                 Write-Log "Capability detection returned unexpected output, using defaults" "WARN"
-                $Labels = $StaticDefaultLabels
+                $Labels = Get-DefaultLabels
             }
         }
         catch {
             Write-Log "Capability detection failed: $($_.Exception.Message)" "WARN"
-            Write-Log "Falling back to static default labels" "WARN"
-            $Labels = $StaticDefaultLabels
+            Write-Log "Falling back to default labels" "WARN"
+            $Labels = Get-DefaultLabels
         }
     }
     else {
         Write-Log "Capability detection script not found at: $detectScript" "WARN"
-        Write-Log "Using static default labels" "WARN"
-        $Labels = $StaticDefaultLabels
+        Write-Log "Using default labels" "WARN"
+        $Labels = Get-DefaultLabels
     }
 }
 else {
-    # Auto-detection disabled, use static defaults
-    Write-Log "Label auto-detection disabled, using static defaults" "INFO"
-    $Labels = $StaticDefaultLabels
+    # Auto-detection disabled, use default labels
+    Write-Log "Label auto-detection disabled, using default labels" "INFO"
+    $Labels = Get-DefaultLabels
 }
 
 # Validate token format

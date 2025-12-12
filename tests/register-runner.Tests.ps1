@@ -411,46 +411,58 @@ Describe "Admin Privilege Check" -Tag "Integration" {
     }
 }
 
-Describe "Static Default Labels" {
+Describe "Default Labels from detect-capabilities.ps1" {
     BeforeAll {
-        # Extract static default labels from script
-        $script:StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity-pool,gpu-cuda,docker,desktop"
+        $ProjectRoot = Split-Path -Parent $PSScriptRoot
+        $script:DetectCapabilitiesPath = Join-Path $ProjectRoot "scripts\detect-capabilities.ps1"
     }
 
-    It "Should include self-hosted label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'self-hosted'
+    It "Should have detect-capabilities.ps1 available" {
+        Test-Path $DetectCapabilitiesPath | Should -Be $true
     }
 
-    It "Should include windows label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'windows'
+    It "Should get default labels from detect-capabilities.ps1 -GetDefaultLabels" {
+        $defaultLabels = & $DetectCapabilitiesPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+        $defaultLabels | Should -Not -BeNullOrEmpty
+        $defaultLabels | Should -Match '^[a-zA-Z0-9_,-]+$'
     }
 
-    It "Should include dotnet label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'dotnet'
+    It "Should include self-hosted label in defaults" {
+        $defaultLabels = & $DetectCapabilitiesPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+        $defaultLabels -split ',' | Should -Contain 'self-hosted'
     }
 
-    It "Should include python label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'python'
+    It "Should include windows label in defaults (on Windows)" {
+        if ($IsWindows -or $env:OS -match 'Windows' -or [System.Environment]::OSVersion.Platform -eq 'Win32NT') {
+            $defaultLabels = & $DetectCapabilitiesPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+            $defaultLabels -split ',' | Should -Contain 'windows'
+        } else {
+            Set-ItResult -Skipped -Because "Not running on Windows"
+        }
     }
 
-    It "Should include unity-pool label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'unity-pool'
+    It "Should include capability labels in defaults" {
+        $defaultLabels = & $DetectCapabilitiesPath -GetDefaultLabels -IncludeBase $true 2>&1 | Select-Object -Last 1
+        $labels = $defaultLabels -split ','
+        # Should include at least some capability labels
+        $capabilityLabels = @('dotnet', 'python', 'unity-pool', 'docker', 'desktop', 'mobile', 'gpu-cuda', 'nodejs', 'ai')
+        $hasCapabilityLabel = $false
+        foreach ($cap in $capabilityLabels) {
+            if ($labels -contains $cap) {
+                $hasCapabilityLabel = $true
+                break
+            }
+        }
+        $hasCapabilityLabel | Should -Be $true
     }
 
-    It "Should include gpu-cuda label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'gpu-cuda'
-    }
-
-    It "Should include docker label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'docker'
-    }
-
-    It "Should include desktop label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'desktop'
-    }
-
-    It "Should have exactly 8 default labels" {
-        ($StaticDefaultLabels -split ',').Count | Should -Be 8
+    It "Should not include base labels when IncludeBase is false" {
+        $defaultLabels = & $DetectCapabilitiesPath -GetDefaultLabels -IncludeBase $false 2>&1 | Select-Object -Last 1
+        $labels = $defaultLabels -split ','
+        $labels | Should -Not -Contain 'self-hosted'
+        $labels | Should -Not -Contain 'windows'
+        $labels | Should -Not -Contain 'linux'
+        $labels | Should -Not -Contain 'macos'
     }
 }
 
@@ -477,7 +489,7 @@ Describe "Label Detection Logic Paths" {
 
     It "Should have fallback for when detection fails" {
         $ScriptContent | Should -Match 'Capability detection failed'
-        $ScriptContent | Should -Match 'Falling back to static default labels'
+        $ScriptContent | Should -Match 'Falling back to default labels'
     }
 
     It "Should validate detected labels with regex pattern" {
