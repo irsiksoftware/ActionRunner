@@ -262,13 +262,48 @@ public class BuildTest : MonoBehaviour
 }
 "@
 
+    $buildScript = @"
+using UnityEditor;
+using UnityEditor.Build.Reporting;
+using UnityEngine;
+
+public class BuildScript
+{
+    public static void PerformBuild()
+    {
+        BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
+        buildPlayerOptions.scenes = new[] { "Assets/Scenes/SampleScene.unity" };
+        buildPlayerOptions.locationPathName = "Build/TestBuild";
+        buildPlayerOptions.target = BuildTarget.StandaloneWindows64;
+        buildPlayerOptions.options = BuildOptions.None;
+
+        BuildReport report = BuildPipeline.BuildPlayer(buildPlayerOptions);
+        BuildSummary summary = report.summary;
+
+        if (summary.result == BuildResult.Succeeded)
+        {
+            Debug.Log("Build succeeded: " + summary.totalSize + " bytes");
+            EditorApplication.Exit(0);
+        }
+        else
+        {
+            Debug.LogError("Build failed");
+            EditorApplication.Exit(1);
+        }
+    }
+}
+"@
+
     # Create project structure
     New-Item -ItemType Directory -Path "$testDir\Assets" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$testDir\Assets\Editor" -Force | Out-Null
+    New-Item -ItemType Directory -Path "$testDir\Assets\Scenes" -Force | Out-Null
     New-Item -ItemType Directory -Path "$testDir\ProjectSettings" -Force | Out-Null
 
     Set-Content -Path "$testDir\ProjectSettings\ProjectVersion.txt" -Value $projectVersion -Force
     Set-Content -Path "$testDir\ProjectSettings\ProjectSettings.asset" -Value $projectSettings -Force
     Set-Content -Path "$testDir\Assets\BuildTest.cs" -Value $testScript -Force
+    Set-Content -Path "$testDir\Assets\Editor\BuildScript.cs" -Value $buildScript -Force
 
     Test-Requirement -Name "Unity Project Structure Creation" -Check {
         $assetsExists = Test-Path "$testDir\Assets"
@@ -290,6 +325,64 @@ public class BuildTest : MonoBehaviour
         }
         return $null
     } -Expected "Valid Unity C# script" -FailureMessage "Unity script validation failed"
+
+    # Find Unity Editor for batch mode build
+    $unityEditorPath = $null
+    if ($IsWindows -or $env:OS -match 'Windows') {
+        $editorPath = Get-Command "Unity.exe" -ErrorAction SilentlyContinue
+        if (-not $editorPath) {
+            $found = Get-Item "C:\Program Files\Unity\Hub\Editor\*\Editor\Unity.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+                $unityEditorPath = $found.FullName
+            }
+        } else {
+            $unityEditorPath = $editorPath.Path
+        }
+    } else {
+        $editorPath = Get-Command "unity" -ErrorAction SilentlyContinue
+        if (-not $editorPath) {
+            $found = Get-Item "/Applications/Unity/Hub/Editor/*/Unity.app/Contents/MacOS/Unity" -ErrorAction SilentlyContinue | Select-Object -First 1
+            if ($found) {
+                $unityEditorPath = $found.FullName
+            }
+        } else {
+            $unityEditorPath = $editorPath.Path
+        }
+    }
+
+    # Execute Unity in batch mode to perform actual build
+    Test-Requirement -Name "Unity Batch Mode Build" -Check {
+        if (-not $unityEditorPath) {
+            return $null
+        }
+
+        $logFile = Join-Path $testDir "unity-build.log"
+
+        # Run Unity in batch mode with the build script
+        $unityArgs = @(
+            "-batchmode",
+            "-quit",
+            "-projectPath", $testDir,
+            "-executeMethod", "BuildScript.PerformBuild",
+            "-logFile", $logFile,
+            "-nographics"
+        )
+
+        $process = Start-Process -FilePath $unityEditorPath -ArgumentList $unityArgs -Wait -PassThru -NoNewWindow
+
+        if ($process.ExitCode -eq 0) {
+            return "Unity batch mode build succeeded"
+        } else {
+            $errorMsg = "Unity build failed with exit code: $($process.ExitCode)"
+            if (Test-Path $logFile) {
+                $logContent = Get-Content $logFile -Tail 20 -ErrorAction SilentlyContinue
+                if ($logContent) {
+                    $errorMsg += "`nLog tail: $($logContent -join "`n")"
+                }
+            }
+            throw $errorMsg
+        }
+    } -Expected "Unity batch mode build successful" -FailureMessage "Unity batch mode build failed. The Unity Editor may not be properly licensed or configured."
 
 } finally {
     # Cleanup

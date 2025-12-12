@@ -283,6 +283,13 @@ Describe "verify-unity.ps1 - Execution Tests" {
             $scriptCheck | Should -Not -BeNullOrEmpty
         }
 
+        It "Should perform Unity batch mode build test" -Skip:(-not $script:UnityAvailable) {
+            $output = & $script:ScriptPath -JsonOutput 2>&1 | Out-String
+            $json = $output | ConvertFrom-Json
+            $buildCheck = $json.checks | Where-Object { $_.name -eq 'Unity Batch Mode Build' }
+            $buildCheck | Should -Not -BeNullOrEmpty
+        }
+
         It "Should accept MinimumVersion parameter" -Skip:(-not $script:UnityAvailable) {
             { & $script:ScriptPath -MinimumVersion "2021.3.0f1" -JsonOutput 2>&1 } | Should -Not -Throw
         }
@@ -387,6 +394,22 @@ Describe "verify-unity.ps1 - Unity Specific Checks" {
 
     It "Checks Unity license file location" {
         $script:Content | Should -Match 'Unity_lic\.ulf'
+    }
+
+    It "Executes Unity Editor in batch mode to build test project" {
+        $script:Content | Should -Match '-batchmode'
+        $script:Content | Should -Match '-quit'
+        $script:Content | Should -Match '-projectPath'
+    }
+
+    It "Creates build script for batch mode execution" {
+        $script:Content | Should -Match 'BuildPlayerOptions'
+        $script:Content | Should -Match 'BuildPipeline\.BuildPlayer'
+    }
+
+    It "Checks exit code from Unity build process" {
+        $script:Content | Should -Match 'Start-Process.*-Wait'
+        $script:Content | Should -Match '\.ExitCode'
     }
 
     It "Supports both Windows and macOS paths" {
