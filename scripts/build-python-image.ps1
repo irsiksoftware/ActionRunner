@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Builds the multi-Python Docker image for containerized GitHub Actions workflows.
 
@@ -139,7 +139,7 @@ if ($Registry) {
 # Show image info
 Write-Host ""
 Write-Host "=== Image Information ===" -ForegroundColor Cyan
-docker images $LocalImageName --format "table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}"
+docker images $LocalImageName --format 'table {{.Repository}}\t{{.Tag}}\t{{.Size}}\t{{.CreatedAt}}'
 
 Write-Host ""
 Write-Host "=== Test the Image ===" -ForegroundColor Cyan

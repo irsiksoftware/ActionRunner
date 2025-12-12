@@ -68,7 +68,7 @@ function Get-DashboardData {
             diskTotalGB = $diskMetrics.totalGB
             avgJobDuration = $avgDuration
             queueLength = 0  # Queue length requires GitHub API access
-            uptimeHours = [math]::Round((Get-Uptime).TotalHours, 1)
+            uptimeHours = [math]::Round(((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).TotalHours, 1)
         }
         charts = @{
             jobsPerDay = @($jobStats.JobsPerDayChart)

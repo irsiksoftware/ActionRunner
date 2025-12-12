@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
     Manage both Windows and Linux (WSL2) GitHub Actions runners.
 

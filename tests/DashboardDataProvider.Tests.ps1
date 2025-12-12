@@ -4,7 +4,7 @@
 #>
 
 BeforeAll {
-    $modulePath = Join-Path (Split-Path -Parent $PSScriptRoot) "modules" "DashboardDataProvider.psm1"
+    $modulePath = Join-Path (Join-Path (Split-Path -Parent $PSScriptRoot) "modules") "DashboardDataProvider.psm1"
     Import-Module $modulePath -Force
 }
 
