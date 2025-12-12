@@ -341,10 +341,12 @@ if (Test-CapabilityScript -Name "Desktop (MAUI/WPF)" -ScriptName "verify-desktop
     $script:Results.capabilities["desktop"] = $true
 }
 
-# Check Mobile capability
-if (Test-CapabilityScript -Name "Mobile Development" -ScriptName "verify-mobile.ps1" -Label "mobile") {
+# Check Mobile capability using comprehensive Android build verification
+if (Test-CapabilityScript -Name "Mobile Development (Android)" -ScriptName "verify-android.ps1" -Label "mobile") {
     $script:Results.labels += "mobile"
+    $script:Results.labels += "android"
     $script:Results.capabilities["mobile"] = $true
+    $script:Results.capabilities["android"] = $true
 }
 
 # Check GPU/CUDA capability
