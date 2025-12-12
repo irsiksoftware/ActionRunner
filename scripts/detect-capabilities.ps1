@@ -369,40 +369,21 @@ $aiComponents = @()
 
 Write-StatusMessage "Checking AI/LLM capabilities..." -Status "CHECK" -Color Cyan
 
-# Check OpenAI SDK
-if (Test-CapabilityScript -Name "OpenAI SDK" -ScriptName "verify-openai.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "openai"
-}
+# Define AI capability checks: Name, ScriptName, ComponentKey
+$aiCapabilities = @(
+    @{ Name = "OpenAI SDK"; ScriptName = "verify-openai.ps1"; Component = "openai" },
+    @{ Name = "LangChain"; ScriptName = "verify-langchain.ps1"; Component = "langchain" },
+    @{ Name = "Embedding Models"; ScriptName = "verify-embedding-models.ps1"; Component = "embeddings" },
+    @{ Name = "Pinecone"; ScriptName = "verify-pinecone.ps1"; Component = "pinecone" },
+    @{ Name = "Weaviate"; ScriptName = "verify-weaviate.ps1"; Component = "weaviate" },
+    @{ Name = "vLLM/TGI"; ScriptName = "verify-vllm-tgi.ps1"; Component = "vllm-tgi" }
+)
 
-# Check LangChain
-if (Test-CapabilityScript -Name "LangChain" -ScriptName "verify-langchain.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "langchain"
-}
-
-# Check Embedding Models
-if (Test-CapabilityScript -Name "Embedding Models" -ScriptName "verify-embedding-models.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "embeddings"
-}
-
-# Check Pinecone Vector DB
-if (Test-CapabilityScript -Name "Pinecone" -ScriptName "verify-pinecone.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "pinecone"
-}
-
-# Check Weaviate Vector DB
-if (Test-CapabilityScript -Name "Weaviate" -ScriptName "verify-weaviate.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "weaviate"
-}
-
-# Check vLLM/TGI Model Serving
-if (Test-CapabilityScript -Name "vLLM/TGI" -ScriptName "verify-vllm-tgi.ps1" -Label "ai") {
-    $aiDetected = $true
-    $aiComponents += "vllm-tgi"
+foreach ($aiCap in $aiCapabilities) {
+    if (Test-CapabilityScript -Name $aiCap.Name -ScriptName $aiCap.ScriptName -Label "ai") {
+        $aiDetected = $true
+        $aiComponents += $aiCap.Component
+    }
 }
 
 # Add AI label if any AI capability was detected
