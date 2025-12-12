@@ -20,7 +20,7 @@
 
 .PARAMETER Labels
     Comma-separated list of labels for the runner
-    Default: "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker"
+    Default: "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker,desktop"
 
 .PARAMETER WorkFolder
     Working directory for the runner (default: C:\actions-runner)
@@ -54,7 +54,7 @@ param(
     [string]$RunnerName = $env:COMPUTERNAME,
 
     [Parameter(Mandatory = $false)]
-    [string]$Labels = "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker",
+    [string]$Labels = "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker,desktop",
 
     [Parameter(Mandatory = $false)]
     [string]$WorkFolder = "C:\actions-runner",
