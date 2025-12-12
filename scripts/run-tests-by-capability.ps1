@@ -8,7 +8,7 @@
 
 param(
     [Parameter()]
-    [ValidateSet('All', 'Core', 'WebApp', 'Docker', 'Mobile', 'AI', 'Integration')]
+    [ValidateSet('All', 'Core', 'WebApp', 'Desktop', 'Docker', 'Mobile', 'AI', 'Integration')]
     [string]$Capability = 'All',
 
     [Parameter()]
@@ -48,6 +48,18 @@ $CapabilityBuckets = @{
             'verify-aspnetcore.Tests.ps1'         # ASP.NET Core verification tests
         )
         Icon = '🌐'
+    }
+
+    'Desktop' = @{
+        Name = 'Desktop Application Build Support'
+        Description = 'MAUI and WPF desktop application development'
+        Tags = @('Desktop', 'MAUI', 'WPF', 'DotNet')
+        Tests = @(
+            'verify-desktop.Tests.ps1'            # Desktop capability aggregator
+            'verify-maui.Tests.ps1'               # MAUI workload verification
+            'verify-wpf.Tests.ps1'                # WPF capability verification
+        )
+        Icon = '🖥️'
     }
 
     'Docker' = @{
@@ -192,7 +204,7 @@ $testsPath = Join-Path $PSScriptRoot "..\tests"
 $results = @()
 
 if ($Capability -eq 'All') {
-    foreach ($capKey in @('Core', 'WebApp', 'Docker', 'Integration', 'Utilities', 'Mobile', 'AI')) {
+    foreach ($capKey in @('Core', 'WebApp', 'Desktop', 'Docker', 'Integration', 'Utilities', 'Mobile', 'AI')) {
         $bucket = $CapabilityBuckets[$capKey]
 
         if ($bucket.Tests.Count -eq 0) {

@@ -66,6 +66,35 @@ jobs:
           path: test-results.xml
           if-no-files-found: ignore
 
+  # Desktop Application Build Support
+  desktop-support:
+    name: 🖥️ Desktop Application Support
+    runs-on: [self-hosted, windows]
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Pester
+        shell: powershell
+        run: |
+          Install-Module -Name Pester -MinimumVersion 5.0 -Force -SkipPublisherCheck -Scope CurrentUser
+          Import-Module Pester -MinimumVersion 5.0 -Force
+
+      - name: Run Desktop Tests
+        shell: powershell
+        run: |
+          & .\scripts\run-tests-by-capability.ps1 -Capability Desktop -DetailedOutput
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: desktop-test-results
+          path: test-results.xml
+          if-no-files-found: ignore
+
   # Docker & Container Support
   docker-support:
     name: 🐳 Docker & Container Support
@@ -242,7 +271,7 @@ jobs:
     name: 📊 Generate Capability Status
     runs-on: [self-hosted, windows]
     timeout-minutes: 5
-    needs: [core-infrastructure, webapp-support, docker-support, mobile-support, ai-support, integration-tests, script-validation]
+    needs: [core-infrastructure, webapp-support, desktop-support, docker-support, mobile-support, ai-support, integration-tests, script-validation]
     if: always()
 
     steps:
@@ -304,6 +333,7 @@ jobs:
         run: |
           $coreStatus = "${{ needs.core-infrastructure.result }}"
           $webappStatus = "${{ needs.webapp-support.result }}"
+          $desktopStatus = "${{ needs.desktop-support.result }}"
           $dockerStatus = "${{ needs.docker-support.result }}"
           $integrationStatus = "${{ needs.integration-tests.result }}"
           $scriptStatus = "${{ needs.script-validation.result }}"
@@ -311,6 +341,7 @@ jobs:
           Write-Host "`n=== JOB STATUS SUMMARY ===" -ForegroundColor Cyan
           Write-Host "[CORE] Core Infrastructure: $coreStatus"
           Write-Host "[WEB]  Web Application Support: $webappStatus"
+          Write-Host "[DESK] Desktop Application Support: $desktopStatus"
           Write-Host "[DOCK] Docker & Container Support: $dockerStatus"
           Write-Host "[INTG] Integration & Workflows: $integrationStatus"
           Write-Host "[SCRP] Script Validation: $scriptStatus"
@@ -319,8 +350,8 @@ jobs:
 
           # Core capabilities must pass (not optional)
           if ($coreStatus -eq "success" -and $webappStatus -eq "success" -and
-              $dockerStatus -eq "success" -and $integrationStatus -eq "success" -and
-              $scriptStatus -eq "success") {
+              $desktopStatus -eq "success" -and $dockerStatus -eq "success" -and
+              $integrationStatus -eq "success" -and $scriptStatus -eq "success") {
             Write-Host "`n[OK] All core build capabilities are functional!" -ForegroundColor Green
             exit 0
           } else {
