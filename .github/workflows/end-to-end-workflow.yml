@@ -298,10 +298,10 @@ jobs:
           echo ""
 
           echo "=== Available Tools ==="
-          command -v git && echo "$(printf '\u2713') Git: $(git --version)"
-          command -v docker && echo "$(printf '\u2713') Docker: $(docker --version)"
-          command -v python3 && echo "$(printf '\u2713') Python: $(python3 --version)"
-          command -v node && echo "$(printf '\u2713') Node.js: $(node --version)"
+          command -v git && echo "$(printf '\u2713') Git: $(git --version)" || echo "Git: Not installed"
+          command -v docker && echo "$(printf '\u2713') Docker: $(docker --version)" || echo "Docker: Not installed"
+          command -v python3 && echo "$(printf '\u2713') Python: $(python3 --version)" || echo "Python: Not installed"
+          command -v node && echo "$(printf '\u2713') Node.js: $(node --version)" || echo "Node.js: Not installed"
 
       - name: Run basic integration test
         shell: bash
