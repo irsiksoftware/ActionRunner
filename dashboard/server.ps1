@@ -4,23 +4,42 @@
 
 .DESCRIPTION
     Serves the dashboard HTML/JS files and provides API endpoints for dashboard data.
+    Data is sourced from real runner logs and system metrics via the DashboardDataProvider module.
 
 .PARAMETER Port
     Port to run the server on (default: 8080)
 
+.PARAMETER LogPath
+    Path to runner logs directory. Defaults to auto-detection of common runner locations.
+
 .EXAMPLE
     .\server.ps1 -Port 8080
+
+.EXAMPLE
+    .\server.ps1 -Port 8080 -LogPath "C:\actions-runner\_diag"
 #>
 
 param(
     [Parameter(Mandatory=$false)]
-    [int]$Port = 8080
+    [int]$Port = 8080,
+
+    [Parameter(Mandatory=$false)]
+    [string]$LogPath
 )
 
 $ErrorActionPreference = "Stop"
 
-# Get the dashboard directory
+# Get the dashboard directory and import the data provider module
 $dashboardDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$modulePath = Join-Path (Split-Path -Parent $dashboardDir) "modules" "DashboardDataProvider.psm1"
+
+if (Test-Path $modulePath) {
+    Import-Module $modulePath -Force -WarningAction SilentlyContinue
+    Write-Host "Loaded DashboardDataProvider module" -ForegroundColor Green
+} else {
+    Write-Host "Warning: DashboardDataProvider module not found at $modulePath" -ForegroundColor Yellow
+    Write-Host "Dashboard will use fallback data" -ForegroundColor Yellow
+}
 
 Write-Host "Starting Dashboard Server..." -ForegroundColor Cyan
 Write-Host "Dashboard Directory: $dashboardDir" -ForegroundColor Gray
@@ -69,74 +88,55 @@ try {
             }
         }
         elseif ($url -eq "/api/dashboard-data") {
-            # Generate and serve dashboard data
-            $data = @{
-                status = "online"
-                timestamp = (Get-Date).ToString("o")
-                metrics = @{
-                    totalJobsToday = Get-Random -Minimum 5 -Maximum 25
-                    successfulJobs = 0
-                    failedJobs = 0
-                    successRate = 0
-                    diskFreeGB = 0
-                    diskTotalGB = 0
-                    avgJobDuration = Get-Random -Minimum 120 -Maximum 400
-                    queueLength = Get-Random -Minimum 0 -Maximum 5
-                    uptimeHours = [math]::Round((Get-Uptime).TotalHours, 1)
-                }
-                charts = @{
-                    jobsPerDay = @()
-                    diskPerDay = @()
-                }
-                recentJobs = @()
-            }
+            # Get dashboard data from real sources via DashboardDataProvider module
+            $data = $null
 
-            # Calculate success rate
-            $data.metrics.successfulJobs = [math]::Floor($data.metrics.totalJobsToday * 0.9)
-            $data.metrics.failedJobs = $data.metrics.totalJobsToday - $data.metrics.successfulJobs
-            $data.metrics.successRate = [math]::Round(($data.metrics.successfulJobs / $data.metrics.totalJobsToday) * 100, 0)
-
-            # Get disk info
-            $disk = Get-PSDrive -PSProvider FileSystem | Where-Object { $_.Name -eq "C" }
-            $data.metrics.diskFreeGB = [math]::Round($disk.Free / 1GB, 1)
-            $data.metrics.diskTotalGB = [math]::Round(($disk.Used + $disk.Free) / 1GB, 1)
-
-            # Generate jobs per day data
-            for ($i = 6; $i -ge 0; $i--) {
-                $date = (Get-Date).AddDays(-$i)
-                $data.charts.jobsPerDay += @{
-                    date = $date.ToString("MMM dd")
-                    count = Get-Random -Minimum 3 -Maximum 20
+            if (Get-Command -Name 'Get-DashboardData' -ErrorAction SilentlyContinue) {
+                # Use the DashboardDataProvider module for real data
+                try {
+                    $data = Get-DashboardData -LogPath $LogPath
+                } catch {
+                    Write-Host "Error getting dashboard data: $_" -ForegroundColor Red
                 }
             }
 
-            # Generate disk per day data
-            $currentDiskFree = $data.metrics.diskFreeGB
-            for ($i = 6; $i -ge 0; $i--) {
-                $date = (Get-Date).AddDays(-$i)
-                $variance = Get-Random -Minimum -10 -Maximum 10
-                $data.charts.diskPerDay += @{
-                    date = $date.ToString("MMM dd")
-                    freeGB = [math]::Max($currentDiskFree + $variance, 50)
+            # Fallback to basic data if module is unavailable or failed
+            if ($null -eq $data) {
+                $disk = Get-PSDrive -PSProvider FileSystem -ErrorAction SilentlyContinue |
+                    Where-Object { $_.Name -eq "C" }
+
+                $data = @{
+                    status = "offline"
+                    timestamp = (Get-Date).ToString("o")
+                    metrics = @{
+                        totalJobsToday = 0
+                        successfulJobs = 0
+                        failedJobs = 0
+                        successRate = 0
+                        diskFreeGB = if ($disk) { [math]::Round($disk.Free / 1GB, 1) } else { 0 }
+                        diskTotalGB = if ($disk) { [math]::Round(($disk.Used + $disk.Free) / 1GB, 1) } else { 0 }
+                        avgJobDuration = 0
+                        queueLength = 0
+                        uptimeHours = [math]::Round((Get-Uptime).TotalHours, 1)
+                    }
+                    charts = @{
+                        jobsPerDay = @()
+                        diskPerDay = @()
+                    }
+                    recentJobs = @()
                 }
-            }
 
-            # Generate recent jobs
-            $jobNames = @(
-                "Build and Test",
-                "Deploy to Production",
-                "Run Integration Tests",
-                "Code Quality Check",
-                "Security Scan"
-            )
-
-            for ($i = 0; $i -lt 8; $i++) {
-                $status = if ($i -eq 0) { "running" } elseif ((Get-Random -Minimum 0 -Maximum 10) -lt 9) { "success" } else { "failure" }
-                $data.recentJobs += @{
-                    name = $jobNames[(Get-Random -Minimum 0 -Maximum $jobNames.Length)]
-                    status = $status
-                    timestamp = (Get-Date).AddMinutes(-$i * 15).ToString("o")
-                    duration = if ($status -eq "running") { $null } else { Get-Random -Minimum 60 -Maximum 300 }
+                # Generate empty chart data
+                for ($i = 6; $i -ge 0; $i--) {
+                    $date = (Get-Date).AddDays(-$i)
+                    $data.charts.jobsPerDay += @{
+                        date = $date.ToString("MMM dd")
+                        count = 0
+                    }
+                    $data.charts.diskPerDay += @{
+                        date = $date.ToString("MMM dd")
+                        freeGB = $data.metrics.diskFreeGB
+                    }
                 }
             }
 

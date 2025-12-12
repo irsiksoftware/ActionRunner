@@ -1,6 +1,6 @@
 Describe "Dashboard and Reporting Tests" {
     BeforeAll {
-        $scriptRoot = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+        $scriptRoot = Split-Path -Parent $PSScriptRoot
         $generateReportScript = Join-Path $scriptRoot "scripts\generate-report.ps1"
         $dashboardDir = Join-Path $scriptRoot "dashboard"
         $testReportDir = Join-Path $TestDrive "reports"
