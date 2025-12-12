@@ -117,7 +117,7 @@ try {
                         diskTotalGB = if ($disk) { [math]::Round(($disk.Used + $disk.Free) / 1GB, 1) } else { 0 }
                         avgJobDuration = 0
                         queueLength = 0
-                        uptimeHours = [math]::Round((Get-Uptime).TotalHours, 1)
+                        uptimeHours = [math]::Round(((Get-Date) - (Get-CimInstance Win32_OperatingSystem).LastBootUpTime).TotalHours, 1)
                     }
                     charts = @{
                         jobsPerDay = @()

@@ -248,7 +248,8 @@ Describe "verify-dashboard-server.ps1 - System Uptime" {
     }
 
     It "Retrieves system uptime" {
-        $script:Content | Should -Match 'Get-Uptime'
+        # Check for either Get-Uptime (PS 6+) or Get-CimInstance Win32_OperatingSystem (PS 5.1 compatible)
+        ($script:Content -match 'Get-Uptime' -or $script:Content -match 'Win32_OperatingSystem') | Should -Be $true
     }
 
     It "Converts uptime to hours" {
