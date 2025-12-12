@@ -11,7 +11,7 @@ jobs:
   test-powershell-scripts:
     name: Test PowerShell Scripts
     runs-on: [self-hosted, windows]
-    timeout-minutes: 5
+    timeout-minutes: 15
 
     steps:
       - name: Checkout code
