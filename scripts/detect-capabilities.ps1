@@ -21,6 +21,7 @@
     - mobile (Android/Flutter/React Native) capability -> mobile label
     - gpu/cuda capability -> gpu-cuda label
     - nodejs capability -> nodejs label
+    - ios (Xcode/iOS SDK on macOS) capability -> ios label
     - ai (OpenAI/LangChain/embeddings/vector DBs) capability -> ai label
 
 .PARAMETER IncludeBase
@@ -49,9 +50,10 @@
 
 .NOTES
     Author: ActionRunner Team
-    Version: 1.1.0
+    Version: 1.2.0
     Created for Issue #168: Ghost Feature - Runner label auto-detection
     Updated for Issue #172: Ghost Feature - AI capability detection integration
+    Updated for Issue #192: Ghost Feature - iOS build capability integration
 #>
 
 [CmdletBinding()]
@@ -355,6 +357,12 @@ if (Test-GpuCapability) {
 if (Test-CapabilityScript -Name "Node.js" -ScriptName "verify-nodejs.ps1" -Label "nodejs") {
     $script:Results.labels += "nodejs"
     $script:Results.capabilities["nodejs"] = $true
+}
+
+# Check iOS build capability (macOS only)
+if (Test-CapabilityScript -Name "iOS Build" -ScriptName "verify-ios-build.ps1" -Label "ios") {
+    $script:Results.labels += "ios"
+    $script:Results.capabilities["ios"] = $true
 }
 
 # ============================================================================
