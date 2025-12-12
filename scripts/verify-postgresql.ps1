@@ -25,7 +25,7 @@
 .PARAMETER MinimumVersion
     Minimum required PostgreSQL version (default: 12.0)
 
-.PARAMETER Host
+.PARAMETER ServerHost
     PostgreSQL server host (default: localhost)
 
 .PARAMETER Port
@@ -66,7 +66,7 @@ param(
     [switch]$ExitOnFailure,
     [switch]$JsonOutput,
     [string]$MinimumVersion = "12.0",
-    [string]$Host = "localhost",
+    [string]$ServerHost = "localhost",
     [int]$Port = 5432,
     [string]$Database = "postgres",
     [string]$Username,
@@ -193,13 +193,13 @@ Test-Requirement `
 # Check 3: PostgreSQL server availability (Warning only)
 Test-Requirement `
     -Name "PostgreSQL Server Status" `
-    -Expected "PostgreSQL server accepting connections on $Host`:$Port" `
+    -Expected "PostgreSQL server accepting connections on $ServerHost`:$Port" `
     -FailureMessage "PostgreSQL server not accepting connections (may not be running locally)" `
     -Severity "Warning" `
     -Check {
-        $serverCheck = pg_isready -h $Host -p $Port 2>&1
+        $serverCheck = pg_isready -h $ServerHost -p $Port 2>&1
         if ($LASTEXITCODE -eq 0) {
-            @{ Passed = $true; Value = "Server accepting connections at $Host`:$Port" }
+            @{ Passed = $true; Value = "Server accepting connections at $ServerHost`:$Port" }
         }
         else {
             @{ Passed = $false; Value = "Server not responding" }
@@ -266,7 +266,7 @@ if ($Username -and $Password -and -not $SkipConnectionTest) {
             -FailureMessage "Failed to connect to PostgreSQL database" `
             -Check {
                 $query = "SELECT version();"
-                $result = psql -h $Host -p $Port -U $Username -d $Database -t -c $query 2>&1
+                $result = psql -h $ServerHost -p $Port -U $Username -d $Database -t -c $query 2>&1
                 if ($LASTEXITCODE -eq 0 -and $result) {
                     $versionInfo = ($result | Out-String).Trim()
                     if ($versionInfo -match 'PostgreSQL ([\d.]+)') {
@@ -311,7 +311,7 @@ if ($Username -and $Password -and -not $SkipConnectionTest) {
 
                 # Create table
                 $createQuery = "CREATE TEMP TABLE $testTable (id SERIAL PRIMARY KEY, name VARCHAR(100));"
-                $createResult = psql -h $Host -p $Port -U $Username -d $Database -t -c $createQuery 2>&1
+                $createResult = psql -h $ServerHost -p $Port -U $Username -d $Database -t -c $createQuery 2>&1
 
                 if ($LASTEXITCODE -ne 0) {
                     @{ Passed = $false; Value = "CREATE TABLE failed: $createResult" }
@@ -319,7 +319,7 @@ if ($Username -and $Password -and -not $SkipConnectionTest) {
                 else {
                     # Insert data
                     $insertQuery = "INSERT INTO $testTable (name) VALUES ('test') RETURNING id;"
-                    $insertResult = psql -h $Host -p $Port -U $Username -d $Database -t -c $insertQuery 2>&1
+                    $insertResult = psql -h $ServerHost -p $Port -U $Username -d $Database -t -c $insertQuery 2>&1
 
                     if ($LASTEXITCODE -ne 0) {
                         @{ Passed = $false; Value = "INSERT failed: $insertResult" }
@@ -327,7 +327,7 @@ if ($Username -and $Password -and -not $SkipConnectionTest) {
                     else {
                         # Select data
                         $selectQuery = "SELECT COUNT(*) FROM $testTable;"
-                        $selectResult = psql -h $Host -p $Port -U $Username -d $Database -t -c $selectQuery 2>&1
+                        $selectResult = psql -h $ServerHost -p $Port -U $Username -d $Database -t -c $selectQuery 2>&1
 
                         if ($LASTEXITCODE -eq 0 -and $selectResult -match '1') {
                             @{ Passed = $true; Value = "CREATE, INSERT, SELECT operations successful" }
@@ -356,7 +356,7 @@ if ($Username -and $Password -and -not $SkipConnectionTest) {
             -Severity "Warning" `
             -Check {
                 $query = "SELECT COUNT(*) FROM pg_available_extensions;"
-                $result = psql -h $Host -p $Port -U $Username -d $Database -t -c $query 2>&1
+                $result = psql -h $ServerHost -p $Port -U $Username -d $Database -t -c $query 2>&1
                 if ($LASTEXITCODE -eq 0 -and $result -match '\d+') {
                     $count = ($result | Out-String).Trim()
                     @{ Passed = $true; Value = "$count extensions available" }
