@@ -88,98 +88,151 @@ Describe "detect-capabilities.ps1 - Function Definitions" {
 Describe "detect-capabilities.ps1 - Capability Detection Coverage" {
     BeforeAll {
         $script:Content = Get-Content $script:ScriptPath -Raw
+        # Import the module to verify capabilities come from centralized source
+        $modulePath = Join-Path $PSScriptRoot "..\modules\RunnerLabels.psm1"
+        Import-Module $modulePath -Force
     }
 
-    It "Checks .NET SDK capability" {
-        $script:Content | Should -Match 'verify-dotnet\.ps1'
+    It "Uses centralized RunnerLabels module" {
+        $script:Content | Should -Match 'Import-Module.*RunnerLabels\.psm1'
+    }
+
+    It "Gets capability mappings from module" {
+        $script:Content | Should -Match 'Get-CapabilityMappings'
+    }
+
+    It "Checks .NET SDK capability via mapping" {
+        $script:Content | Should -Match '\$dotnetMapping\s*='
+        $script:Content | Should -Match "CapabilityMappings\['dotnet'\]"
     }
 
     It "Checks Python capability" {
         $script:Content | Should -Match 'Test-PythonCapability'
     }
 
-    It "Checks Unity capability" {
-        $script:Content | Should -Match 'verify-unity\.ps1'
+    It "Checks Unity capability via mapping" {
+        $script:Content | Should -Match '\$unityMapping\s*='
+        $script:Content | Should -Match "CapabilityMappings\['unity'\]"
     }
 
-    It "Checks Docker capability" {
-        $script:Content | Should -Match 'verify-docker\.ps1'
+    It "Checks Docker capability via mapping" {
+        $script:Content | Should -Match '\$dockerMapping\s*='
+        $script:Content | Should -Match "CapabilityMappings\['docker'\]"
     }
 
-    It "Checks Desktop capability" {
-        $script:Content | Should -Match 'verify-desktop\.ps1'
+    It "Checks Desktop capability via mapping" {
+        $script:Content | Should -Match '\$desktopMapping\s*='
+        $script:Content | Should -Match "CapabilityMappings\['desktop'\]"
     }
 
-    It "Checks Mobile capability" {
-        $script:Content | Should -Match 'verify-mobile\.ps1'
+    It "Checks Mobile capability via mapping" {
+        $script:Content | Should -Match '\$mobileMapping\s*='
+        $script:Content | Should -Match "CapabilityMappings\['mobile'\]"
     }
 
     It "Checks GPU/CUDA capability" {
         $script:Content | Should -Match 'Test-GpuCapability'
     }
 
-    It "Checks Node.js capability" {
-        $script:Content | Should -Match 'verify-nodejs\.ps1'
+    It "Checks Node.js capability via mapping" {
+        $script:Content | Should -Match '\$nodejsMapping\s*='
+        $script:Content | Should -Match "CapabilityMappings\['nodejs'\]"
+    }
+
+    It "Centralized module contains verify script paths" {
+        $mappings = Get-CapabilityMappings
+        $mappings['dotnet'].Script | Should -Be 'verify-dotnet.ps1'
+        $mappings['unity'].Script | Should -Be 'verify-unity.ps1'
+        $mappings['docker'].Script | Should -Be 'verify-docker.ps1'
+        $mappings['desktop'].Script | Should -Be 'verify-desktop.ps1'
+        $mappings['mobile'].Script | Should -Be 'verify-mobile.ps1'
+        $mappings['nodejs'].Script | Should -Be 'verify-nodejs.ps1'
     }
 }
 
 Describe "detect-capabilities.ps1 - Label Mapping" {
     BeforeAll {
         $script:Content = Get-Content $script:ScriptPath -Raw
+        # Import the module to verify label mappings
+        $modulePath = Join-Path $PSScriptRoot "..\modules\RunnerLabels.psm1"
+        Import-Module $modulePath -Force
     }
 
-    It "Maps dotnet capability to dotnet label" {
-        $script:Content | Should -Match '-Label "dotnet"'
+    It "Uses CapabilityLabels from centralized module" {
+        $script:Content | Should -Match 'Get-CapabilityLabels'
     }
 
-    It "Maps python capability to python label" {
-        $script:Content | Should -Match '"python"'
+    It "Adds dotnet label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.DotNet'
     }
 
-    It "Maps unity capability to unity-pool label" {
-        $script:Content | Should -Match '-Label "unity-pool"'
+    It "Adds python label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.Python'
     }
 
-    It "Maps docker capability to docker label" {
-        $script:Content | Should -Match '-Label "docker"'
+    It "Adds unity label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.Unity'
     }
 
-    It "Maps desktop capability to desktop label" {
-        $script:Content | Should -Match '-Label "desktop"'
+    It "Adds docker label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.Docker'
     }
 
-    It "Maps mobile capability to mobile label" {
-        $script:Content | Should -Match '-Label "mobile"'
+    It "Adds desktop label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.Desktop'
     }
 
-    It "Maps gpu capability to gpu-cuda label" {
-        $script:Content | Should -Match '"gpu-cuda"'
+    It "Adds mobile label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.Mobile'
     }
 
-    It "Maps nodejs capability to nodejs label" {
-        $script:Content | Should -Match '-Label "nodejs"'
+    It "Adds gpu-cuda label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.GpuCuda'
+    }
+
+    It "Adds nodejs label from CapabilityLabels" {
+        $script:Content | Should -Match '\$CapabilityLabels\.NodeJs'
+    }
+
+    It "Centralized module has correct label values" {
+        $labels = Get-CapabilityLabels
+        $labels.DotNet | Should -Be "dotnet"
+        $labels.Python | Should -Be "python"
+        $labels.Unity | Should -Be "unity-pool"
+        $labels.Docker | Should -Be "docker"
+        $labels.Desktop | Should -Be "desktop"
+        $labels.Mobile | Should -Be "mobile"
+        $labels.GpuCuda | Should -Be "gpu-cuda"
+        $labels.NodeJs | Should -Be "nodejs"
     }
 }
 
 Describe "detect-capabilities.ps1 - Base Labels" {
     BeforeAll {
         $script:Content = Get-Content $script:ScriptPath -Raw
+        # Import the module to verify base label values
+        $modulePath = Join-Path $PSScriptRoot "..\modules\RunnerLabels.psm1"
+        Import-Module $modulePath -Force
     }
 
-    It "Includes self-hosted as base label" {
-        $script:Content | Should -Match '"self-hosted"'
+    It "Uses BaseLabels from centralized module" {
+        $script:Content | Should -Match 'Get-BaseLabels'
     }
 
-    It "Detects Windows OS" {
-        $script:Content | Should -Match '"windows"'
+    It "Uses Get-OSLabel for OS detection" {
+        $script:Content | Should -Match 'Get-OSLabel'
     }
 
-    It "Detects Linux OS" {
-        $script:Content | Should -Match '"linux"'
+    It "Adds self-hosted from BaseLabels" {
+        $script:Content | Should -Match '\$BaseLabels\.SelfHosted'
     }
 
-    It "Detects macOS" {
-        $script:Content | Should -Match '"macos"'
+    It "Centralized module has correct base label values" {
+        $labels = Get-BaseLabels
+        $labels.SelfHosted | Should -Be "self-hosted"
+        $labels.Windows | Should -Be "windows"
+        $labels.Linux | Should -Be "linux"
+        $labels.MacOS | Should -Be "macos"
     }
 }
 
