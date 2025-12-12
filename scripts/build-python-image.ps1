@@ -49,10 +49,10 @@ $BuildContext = Join-Path $PSScriptRoot "..\docker"
 
 # Determine full image name
 if ($Registry) {
-    $FullImageName = "$Registry/$ImageName:$Tag"
-    $LocalImageName = "$ImageName:$Tag"
+    $FullImageName = "${Registry}/${ImageName}:${Tag}"
+    $LocalImageName = "${ImageName}:${Tag}"
 } else {
-    $FullImageName = "$ImageName:$Tag"
+    $FullImageName = "${ImageName}:${Tag}"
     $LocalImageName = $FullImageName
 }
 
