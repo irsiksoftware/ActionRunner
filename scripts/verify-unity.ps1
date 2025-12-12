@@ -271,10 +271,28 @@ public class BuildScript
 {
     public static void PerformBuild()
     {
+        BuildTarget target;
+        string extension;
+
+        #if UNITY_EDITOR_WIN
+        target = BuildTarget.StandaloneWindows64;
+        extension = ".exe";
+        #elif UNITY_EDITOR_OSX
+        target = BuildTarget.StandaloneOSX;
+        extension = ".app";
+        #elif UNITY_EDITOR_LINUX
+        target = BuildTarget.StandaloneLinux64;
+        extension = "";
+        #else
+        Debug.LogError("Unsupported platform");
+        EditorApplication.Exit(1);
+        return;
+        #endif
+
         BuildPlayerOptions buildPlayerOptions = new BuildPlayerOptions();
         buildPlayerOptions.scenes = new[] { "Assets/Scenes/SampleScene.unity" };
-        buildPlayerOptions.locationPathName = "Build/TestBuild";
-        buildPlayerOptions.target = BuildTarget.StandaloneWindows64;
+        buildPlayerOptions.locationPathName = "Build/TestBuild" + extension;
+        buildPlayerOptions.target = target;
         buildPlayerOptions.options = BuildOptions.None;
 
         BuildReport report = BuildPipeline.BuildPlayer(buildPlayerOptions);
