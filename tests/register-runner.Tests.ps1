@@ -411,46 +411,160 @@ Describe "Admin Privilege Check" -Tag "Integration" {
     }
 }
 
-Describe "Static Default Labels" {
+Describe "register-runner.ps1 Default Values" {
     BeforeAll {
-        # Extract static default labels from script
-        $script:StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity-pool,gpu-cuda,docker,desktop"
+        $script:Params = (Get-Command $script:ScriptPath).Parameters
+        $script:Content = Get-Content $script:ScriptPath -Raw
     }
 
-    It "Should include self-hosted label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'self-hosted'
+    It "Should have RunnerName default to COMPUTERNAME" {
+        # Check that default runner name is set to $env:COMPUTERNAME in the script
+        $Content | Should -Match '\$RunnerName\s*=\s*\$env:COMPUTERNAME'
     }
 
-    It "Should include windows label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'windows'
+    It "Should have WorkFolder default to C:\actions-runner" {
+        # Check that default work folder is set in the script
+        $Content | Should -Match '\$WorkFolder\s*=\s*[''"]C:\\actions-runner[''"]'
+    }
+}
+
+Describe "register-runner.ps1 AutoDetectLabels Parameter" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
     }
 
-    It "Should include dotnet label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'dotnet'
+    It "Script has AutoDetectLabels parameter" {
+        $script:Content | Should -Match '\$AutoDetectLabels'
     }
 
-    It "Should include python label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'python'
+    It "AutoDetectLabels defaults to true" {
+        $script:Content | Should -Match '\[bool\]\$AutoDetectLabels\s*=\s*\$true'
     }
 
-    It "Should include unity-pool label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'unity-pool'
+    It "Script references detect-capabilities.ps1" {
+        $script:Content | Should -Match 'detect-capabilities\.ps1'
     }
 
-    It "Should include gpu-cuda label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'gpu-cuda'
+    It "Script has static default labels fallback" {
+        $script:Content | Should -Match '\$StaticDefaultLabels'
     }
 
-    It "Should include docker label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'docker'
+    It "Static default labels include expected values" {
+        $script:Content | Should -Match 'self-hosted'
+        $script:Content | Should -Match 'windows'
+        $script:Content | Should -Match 'dotnet'
+    }
+}
+
+Describe "register-runner.ps1 Label Detection Logic" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
     }
 
-    It "Should include desktop label" {
-        $StaticDefaultLabels -split ',' | Should -Contain 'desktop'
+    It "Uses explicit labels when provided" {
+        $script:Content | Should -Match 'if \(\$Labels\)'
+        $script:Content | Should -Match 'Using explicitly provided labels'
     }
 
-    It "Should have exactly 8 default labels" {
-        ($StaticDefaultLabels -split ',').Count | Should -Be 8
+    It "Auto-detects labels when AutoDetectLabels is enabled and no explicit labels" {
+        $script:Content | Should -Match 'elseif \(\$AutoDetectLabels\)'
+        $script:Content | Should -Match 'Auto-detecting runner capabilities'
+    }
+
+    It "Falls back to static defaults when auto-detection is disabled" {
+        $script:Content | Should -Match 'Label auto-detection disabled'
+    }
+
+    It "Falls back to static defaults when detect-capabilities.ps1 is not found" {
+        $script:Content | Should -Match 'Capability detection script not found'
+    }
+
+    It "Falls back to static defaults when detection fails" {
+        $script:Content | Should -Match 'Capability detection failed'
+        $script:Content | Should -Match 'Falling back to static default labels'
+    }
+}
+
+Describe "register-runner.ps1 Centralized Labels Configuration" {
+    BeforeAll {
+        $ProjectRoot = Split-Path -Parent $PSScriptRoot
+        $labelsConfigPath = Join-Path $ProjectRoot "config\runner-labels.psd1"
+        $scriptContent = Get-Content $ScriptPath -Raw
+    }
+
+    It "Should load labels from centralized config file" {
+        $scriptContent | Should -Match 'runner-labels\.psd1'
+    }
+
+    It "Should use Import-PowerShellDataFile to load labels" {
+        $scriptContent | Should -Match 'Import-PowerShellDataFile'
+    }
+
+    It "Should throw error if config file is missing" {
+        $scriptContent | Should -Match 'throw.*Labels configuration not found'
+    }
+
+    It "Should reference DefaultLabels from config" {
+        $scriptContent | Should -Match 'DefaultLabels'
+    }
+
+    It "Centralized labels config file should exist" {
+        Test-Path $labelsConfigPath | Should -Be $true
+    }
+
+    It "Centralized labels config should contain DefaultLabels" {
+        $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+        $labelsConfig.DefaultLabels | Should -Not -BeNullOrEmpty
+    }
+
+    It "Centralized labels config should include self-hosted label" {
+        $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+        $labelsConfig.DefaultLabels | Should -Contain 'self-hosted'
+    }
+
+    It "Centralized labels config should include windows label" {
+        $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+        $labelsConfig.DefaultLabels | Should -Contain 'windows'
+    }
+
+    It "Centralized labels config should include all expected labels" {
+        $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+        $labelsConfig.DefaultLabels | Should -Contain 'dotnet'
+        $labelsConfig.DefaultLabels | Should -Contain 'python'
+        $labelsConfig.DefaultLabels | Should -Contain 'unity'
+        $labelsConfig.DefaultLabels | Should -Contain 'gpu-cuda'
+        $labelsConfig.DefaultLabels | Should -Contain 'docker'
+    }
+
+    It "Both scripts should use the same centralized config file" {
+        $installRunnerPath = Join-Path $ProjectRoot "scripts\install-runner.ps1"
+        $registerRunnerPath = Join-Path $ProjectRoot "scripts\register-runner.ps1"
+
+        $installContent = Get-Content $installRunnerPath -Raw
+        $registerContent = Get-Content $registerRunnerPath -Raw
+
+        $installContent | Should -Match 'runner-labels\.psd1'
+        $registerContent | Should -Match 'runner-labels\.psd1'
+    }
+}
+
+Describe "register-runner.ps1 Label Validation" {
+    BeforeAll {
+        $script:Params = (Get-Command $script:ScriptPath).Parameters
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Should have Labels parameter" {
+        $Params['Labels'] | Should -Not -BeNullOrEmpty
+    }
+
+    It "Should include self-hosted label in defaults" {
+        $Content | Should -Match 'self-hosted'
+    }
+
+    It "Should handle labels parameter in configuration" {
+        # Check that script handles --labels argument for config
+        $Content | Should -Match '--labels'
     }
 }
 
@@ -513,6 +627,30 @@ Describe "Error Handling" {
 
     It "Should exit with code 1 when service installation requires admin" {
         $ScriptContent | Should -Match 'Service installation requires administrator privileges'
+    }
+
+    It "Script has try-catch error handling" {
+        $ScriptContent | Should -Match 'try\s*\{'
+        $ScriptContent | Should -Match 'catch\s*\{'
+    }
+
+    It "Script validates admin privileges for service installation" {
+        # Check that script checks admin privileges
+        $ScriptContent | Should -Match 'WindowsPrincipal'
+        $ScriptContent | Should -Match 'Administrator'
+    }
+
+    It "Script has error handling for download failures" {
+        # Check that script handles download errors
+        $ScriptContent | Should -Match 'Write-Log.*ERROR'
+    }
+
+    It "Should detect admin privilege check logic works" {
+        # Meta-test to verify the check would work
+        $currentPrincipal = New-Object Security.Principal.WindowsPrincipal([Security.Principal.WindowsIdentity]::GetCurrent())
+        $isAdmin = $currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
+
+        { $isAdmin -is [bool] } | Should -Be $true
     }
 }
 

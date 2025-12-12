@@ -351,7 +351,7 @@ Describe "verify-vllm-tgi.ps1 - Model Serving Specific Checks" {
     }
 
     It "Includes model loading test" {
-        $script:Content | Should -Match 'model.*=.*LLM'
+        $script:Content | Should -Match 'LLM\(model='
     }
 
     It "Includes inference performance check" {

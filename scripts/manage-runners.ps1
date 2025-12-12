@@ -294,9 +294,9 @@ function Get-LinuxRunnerLogs {
 # ==============================================================================
 
 Write-Host ""
-Write-Host "╔═══════════════════════════════════════════════╗" -ForegroundColor Cyan
-Write-Host "║   GitHub Actions Runner Manager (Dual Setup) ║" -ForegroundColor Cyan
-Write-Host "╚═══════════════════════════════════════════════╝" -ForegroundColor Cyan
+Write-Host "=============================================" -ForegroundColor Cyan
+Write-Host "|   GitHub Actions Runner Manager (Dual Setup) |" -ForegroundColor Cyan
+Write-Host "=============================================" -ForegroundColor Cyan
 
 $doWindows = ($Runner -eq 'windows' -or $Runner -eq 'both')
 $doLinux = ($Runner -eq 'linux' -or $Runner -eq 'both')
@@ -307,7 +307,7 @@ switch ($Action) {
         if ($doLinux) { $linuxOk = Get-LinuxRunnerStatus }
 
         Write-Host ""
-        Write-Host "═══════════════════════════════════════════════" -ForegroundColor Cyan
+        Write-Host "===============================================" -ForegroundColor Cyan
 
         if ($doWindows -and $doLinux) {
             if ($windowsOk -and $linuxOk) {

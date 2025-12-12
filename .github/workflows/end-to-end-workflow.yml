@@ -265,7 +265,7 @@ jobs:
           Write-Host "`nCleaning up test artifacts..." -ForegroundColor Cyan
 
           if (Test-Path .\scripts\cleanup-workspace.ps1) {
-            & .\scripts\cleanup-workspace.ps1 -Force -Verbose
+            & .\scripts\cleanup-workspace.ps1 -Verbose
             Write-Host "$([char]0x2713) Workspace cleaned" -ForegroundColor Green
           } else {
             Write-Host "Cleanup script not found, performing basic cleanup..." -ForegroundColor Yellow

@@ -25,7 +25,7 @@
 
 .PARAMETER Labels
     Comma-separated list of labels for the runner
-    Default: "self-hosted,gpu-cuda,unity,dotnet,python,windows,desktop"
+    Default: Labels from config/runner-labels.psd1 (DefaultLabels)
 
 .PARAMETER WorkFolder
     Working directory for the runner (default: C:\actions-runner)
@@ -91,7 +91,7 @@ param(
     [string]$RunnerName = $env:COMPUTERNAME,
 
     [Parameter(Mandatory = $false)]
-    [string]$Labels = "self-hosted,gpu-cuda,unity,dotnet,python,windows,desktop",
+    [string]$Labels,
 
     [Parameter(Mandatory = $false)]
     [string]$WorkFolder = "C:\actions-runner",
@@ -126,6 +126,17 @@ param(
 
 $ErrorActionPreference = "Stop"
 $LogFile = Join-Path $env:TEMP "runner-install-$(Get-Date -Format 'yyyyMMdd-HHmmss').log"
+
+# Load default labels from centralized configuration if not provided
+if (-not $Labels) {
+    $labelsConfigPath = Join-Path $PSScriptRoot "..\config\runner-labels.psd1"
+    if (Test-Path $labelsConfigPath) {
+        $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
+        $Labels = $labelsConfig.DefaultLabels -join ','
+    } else {
+        throw "Labels configuration not found at $labelsConfigPath. Ensure config/runner-labels.psd1 exists."
+    }
+}
 
 # Logging function
 function Write-Log {

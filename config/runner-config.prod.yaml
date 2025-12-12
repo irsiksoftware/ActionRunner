@@ -11,57 +11,104 @@ runner:
     - "production"
     - "gpu-enabled"
 
-  paths:
-    work_dir: "C:\\actions-runner\\_work"
-    tools_dir: "C:\\actions-runner\\_tools"
-    temp_dir: "C:\\actions-runner\\_temp"
-    logs_dir: "C:\\actions-runner\\_logs"
-    config_backup_dir: "C:\\actions-runner\\config-backups"
+  group: "Production"
 
-  resources:
-    max_cpu_cores: 16
+paths:
+  runner_home: "C:\\actions-runner"
+  work_directory: "C:\\actions-runner\\_work"
+  temp_directory: "C:\\actions-runner\\_temp"
+  log_directory: "C:\\actions-runner\\_logs"
+
+resources:
+  max_concurrent_jobs: 5
+  cpu:
+    max_cores: 16
+    affinity: ""
+  memory:
     max_memory_gb: 32
-    max_disk_space_gb: 200
-    reserved_cpu_percent: 15
     reserved_memory_gb: 4
+  disk:
+    min_free_space_gb: 200
+    auto_cleanup: true
+    cleanup_per_job: true
 
-  timeouts:
-    job_timeout: 480
-    idle_timeout: 30
-    cleanup_timeout: 20
-    health_check_interval: 3
+timeouts:
+  job_timeout_minutes: 480
+  queue_timeout_minutes: 60
+  step_timeout_minutes: 120
 
-  environment:
+environment:
+  system:
     DOTNET_ROOT: "C:\\Program Files\\dotnet"
     JAVA_HOME: "C:\\Program Files\\Java\\jdk-17"
     PYTHON_PATH: "C:\\Python311"
     NODE_PATH: "C:\\Program Files\\nodejs"
     DOCKER_HOST: "npipe:////./pipe/docker_engine"
+  runner:
     ACTIONS_RUNNER_HOOK_JOB_STARTED: "C:\\actions-runner\\hooks\\job-started.ps1"
     ACTIONS_RUNNER_HOOK_JOB_COMPLETED: "C:\\actions-runner\\hooks\\job-completed.ps1"
     RUNNER_ALLOW_RUNASROOT: "0"
+  custom: {}
 
-  features:
-    enable_docker_isolation: true
-    enable_logging: true
-    enable_health_checks: true
-    enable_auto_updates: true
-    enable_metrics_collection: true
-    enable_workspace_cleanup: true
+gpu:
+  enabled: true
+  cuda_visible_devices: "0"
+  memory_limit_gb: 8
 
-  security:
-    allow_privileged_containers: false
-    enforce_code_signing: true
-    scan_dependencies: true
-    quarantine_untrusted_code: true
-    max_concurrent_jobs: 5
+docker:
+  enabled: true
+  socket_path: "npipe:////./pipe/docker_engine"
+  isolation_mode: "hyperv"
+  container_limits:
+    memory_gb: 16
+    cpu_cores: 8
+  auto_cleanup_containers: true
+  auto_cleanup_images: true
 
-  maintenance:
-    enabled: true
-    window_start: "02:00"
-    window_end: "05:00"
-    days:
-      - "Sunday"
-      - "Tuesday"
-      - "Thursday"
-    auto_restart: true
+monitoring:
+  enabled: true
+  health_check_interval: 180
+  alert_webhook: ""
+  alerts:
+    runner_offline: true
+    low_disk_space: true
+    high_cpu_usage: true
+    high_memory_usage: true
+    job_failure: true
+  thresholds:
+    cpu_warning_percent: 75
+    cpu_critical_percent: 90
+    memory_warning_percent: 80
+    memory_critical_percent: 95
+    disk_warning_gb: 250
+    disk_critical_gb: 200
+
+security:
+  firewall_enabled: true
+  allowed_networks:
+    - "192.168.1.0/24"
+    - "10.0.0.0/8"
+  block_external_access: true
+  audit_logging: true
+  audit_log_path: "C:\\actions-runner\\logs\\audit.log"
+
+logging:
+  level: "info"
+  retention_days: 90
+  max_file_size_mb: 200
+  rotation_enabled: true
+  console_output: false
+
+maintenance:
+  auto_update: true
+  update_check_interval_hours: 12
+  backup_before_update: true
+  maintenance_window: "0 2 * * 0,2,4"  # 2 AM on Sunday, Tuesday, Thursday
+
+features:
+  experimental:
+    new_job_engine: false
+    job_queueing: true
+  disabled:
+    artifact_upload: false
+    cache: false

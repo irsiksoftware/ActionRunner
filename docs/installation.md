@@ -502,7 +502,7 @@ Manually trigger the workflow from GitHub Actions tab and verify it runs success
 1. Clean up workspace:
    ```powershell
    # Windows
-   .\scripts\cleanup-workspace.ps1 -Force
+   .\scripts\cleanup-workspace.ps1
    ```
 2. Increase disk space allocation
 3. Set up automatic cleanup (see Post-Installation Setup)

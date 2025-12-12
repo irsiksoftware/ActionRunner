@@ -128,9 +128,9 @@ Describe "End-to-End Workflow Integration Tests" -Tag "Integration", "E2E" {
             if ($LASTEXITCODE -eq 0) {
                 $pythonVersion | Should -Match 'Python \d+\.\d+'
 
-                # Check pip (may not be in PATH even if Python is installed)
-                $pipVersion = pip --version 2>$null
-                if ($LASTEXITCODE -eq 0 -and $pipVersion) {
+                # Check pip (may not be available in all Python installations)
+                $pipVersion = pip --version 2>&1 | Out-String
+                if ($LASTEXITCODE -eq 0 -and $pipVersion.Trim()) {
                     $pipVersion | Should -Match 'pip \d+'
                 }
             } else {

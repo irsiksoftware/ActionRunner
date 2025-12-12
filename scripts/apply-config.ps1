@@ -537,5 +537,5 @@ try {
 } catch {
     Write-ConfigLog "Fatal error during configuration application: $_" "ERROR"
     Write-ConfigLog $_.ScriptStackTrace "ERROR"
-    exit 1
+    throw
 }
