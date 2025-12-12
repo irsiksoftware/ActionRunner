@@ -346,8 +346,8 @@ Describe "install-runner.ps1" {
             $scriptContent | Should -Match 'Import-PowerShellDataFile'
         }
 
-        It "Should have a fallback if config file is missing" {
-            $scriptContent | Should -Match 'Fallback if config file is missing'
+        It "Should throw error if config file is missing" {
+            $scriptContent | Should -Match 'throw.*Labels configuration not found'
         }
 
         It "Should reference DefaultLabels from config" {

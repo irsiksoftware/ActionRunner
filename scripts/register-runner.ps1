@@ -95,9 +95,7 @@ if (Test-Path $labelsConfigPath) {
     $labelsConfig = Import-PowerShellDataFile -Path $labelsConfigPath
     $StaticDefaultLabels = $labelsConfig.DefaultLabels -join ','
 } else {
-    # Fallback if config file is missing
-    $StaticDefaultLabels = "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker"
-    Write-Warning "Labels configuration not found at $labelsConfigPath, using fallback defaults"
+    throw "Labels configuration not found at $labelsConfigPath. Ensure config/runner-labels.psd1 exists."
 }
 
 # Logging function
