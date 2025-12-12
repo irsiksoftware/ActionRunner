@@ -66,7 +66,14 @@ $CapabilityBuckets = @{
         Name = 'Mobile Build Support'
         Description = 'Unity, Android, iOS, React Native, Flutter'
         Tags = @('Mobile', 'Unity', 'Android', 'iOS', 'ReactNative', 'Flutter')
-        Tests = @()  # Will be created in Phase 3
+        Tests = @(
+            'verify-mobile.Tests.ps1'
+            'verify-android.Tests.ps1'
+            'verify-flutter.Tests.ps1'
+            'verify-reactnative.Tests.ps1'
+            'verify-ios-build.Tests.ps1'
+            'verify-unity.Tests.ps1'
+        )
         Icon = '📱'
     }
 
