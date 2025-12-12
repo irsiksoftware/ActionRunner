@@ -76,22 +76,106 @@ Describe "register-runner.ps1 Default Values" {
         $env:COMPUTERNAME | Should -Not -BeNullOrEmpty
     }
 
-    It "Should use default labels when not specified" {
-        Mock -CommandName Write-Log -MockWith {}
-
-        $defaultLabels = "self-hosted,windows,dotnet,python,unity,gpu-cuda,docker"
-
-        # Default labels should include all expected values
-        $defaultLabels -split ',' | Should -Contain 'self-hosted'
-        $defaultLabels -split ',' | Should -Contain 'windows'
-        $defaultLabels -split ',' | Should -Contain 'dotnet'
-    }
-
     It "Should use C:\actions-runner as default work folder" {
         Mock -CommandName Write-Log -MockWith {}
 
         $defaultWorkFolder = "C:\actions-runner"
         $defaultWorkFolder | Should -Be "C:\actions-runner"
+    }
+}
+
+Describe "register-runner.ps1 AutoDetectLabels Parameter" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Script has AutoDetectLabels parameter" {
+        $script:Content | Should -Match '\$AutoDetectLabels'
+    }
+
+    It "AutoDetectLabels defaults to true" {
+        $script:Content | Should -Match '\[bool\]\$AutoDetectLabels\s*=\s*\$true'
+    }
+
+    It "Script references detect-capabilities.ps1" {
+        $script:Content | Should -Match 'detect-capabilities\.ps1'
+    }
+
+    It "Script has static default labels fallback" {
+        $script:Content | Should -Match '\$StaticDefaultLabels'
+    }
+
+    It "Static default labels include expected values" {
+        $script:Content | Should -Match 'self-hosted'
+        $script:Content | Should -Match 'windows'
+        $script:Content | Should -Match 'dotnet'
+    }
+}
+
+Describe "register-runner.ps1 Label Detection Logic" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Uses explicit labels when provided" {
+        $script:Content | Should -Match 'if \(\$Labels\)'
+        $script:Content | Should -Match 'Using explicitly provided labels'
+    }
+
+    It "Auto-detects labels when AutoDetectLabels is enabled and no explicit labels" {
+        $script:Content | Should -Match 'elseif \(\$AutoDetectLabels\)'
+        $script:Content | Should -Match 'Auto-detecting runner capabilities'
+    }
+
+    It "Falls back to static defaults when auto-detection is disabled" {
+        $script:Content | Should -Match 'Label auto-detection disabled'
+    }
+
+    It "Falls back to static defaults when detect-capabilities.ps1 is not found" {
+        $script:Content | Should -Match 'Capability detection script not found'
+    }
+
+    It "Falls back to static defaults when detection fails" {
+        $script:Content | Should -Match 'Capability detection failed'
+        $script:Content | Should -Match 'Falling back to static default labels'
+    }
+}
+
+Describe "register-runner.ps1 Static Default Labels" {
+    BeforeAll {
+        $script:Content = Get-Content $script:ScriptPath -Raw
+    }
+
+    It "Static default labels include self-hosted" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*self-hosted'
+    }
+
+    It "Static default labels include windows" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*windows'
+    }
+
+    It "Static default labels include dotnet" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*dotnet'
+    }
+
+    It "Static default labels include python" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*python'
+    }
+
+    It "Static default labels include unity-pool" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*unity-pool'
+    }
+
+    It "Static default labels include gpu-cuda" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*gpu-cuda'
+    }
+
+    It "Static default labels include docker" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*docker'
+    }
+
+    It "Static default labels include desktop" {
+        $script:Content | Should -Match '\$StaticDefaultLabels\s*=.*desktop'
     }
 }
 
