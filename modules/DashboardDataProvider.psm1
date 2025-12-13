@@ -447,7 +447,46 @@ function EstimateJobDuration {
         [string]$JobName
     )
 
-    # Default to a reasonable estimate if we can't calculate
+    $jobStartTime = $null
+    $jobEndTime = $null
+    $jobRunningPattern = "Running job: $JobName"
+    $jobCompletedPattern = "Job $JobName completed with result:"
+
+    foreach ($line in $LogContent) {
+        if ($null -eq $jobStartTime -and $line -match [regex]::Escape($jobRunningPattern)) {
+            if ($line -match $script:TimestampPattern) {
+                try {
+                    $jobStartTime = [datetime]::Parse($Matches[1])
+                }
+                catch {
+                    continue
+                }
+            }
+        }
+
+        if ($line -match [regex]::Escape($jobCompletedPattern)) {
+            if ($line -match $script:TimestampPattern) {
+                try {
+                    $jobEndTime = [datetime]::Parse($Matches[1])
+                }
+                catch {
+                    continue
+                }
+            }
+        }
+
+        if ($jobStartTime -and $jobEndTime) {
+            break
+        }
+    }
+
+    if ($jobStartTime -and $jobEndTime) {
+        $duration = ($jobEndTime - $jobStartTime).TotalSeconds
+        if ($duration -gt 0 -and $duration -lt 86400) {
+            return [int][math]::Round($duration)
+        }
+    }
+
     return 180
 }
 

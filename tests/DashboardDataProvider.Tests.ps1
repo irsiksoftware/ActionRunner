@@ -143,6 +143,48 @@ Describe "DashboardDataProvider Module" {
         }
     }
 
+    Context "EstimateJobDuration" {
+        BeforeAll {
+            $script:EstimateJobDuration = Get-Command EstimateJobDuration -Module DashboardDataProvider -ErrorAction SilentlyContinue
+        }
+
+        It "Should calculate actual duration from log content" {
+            $logContent = @(
+                "[2025-12-12 10:00:00Z INFO Runner.Worker] Running job: TestJob-123",
+                "[2025-12-12 10:00:30Z INFO Runner.Worker] Some other log line",
+                "[2025-12-12 10:03:00Z INFO Runner.Worker] Job TestJob-123 completed with result: Succeeded"
+            )
+
+            $duration = & (Get-Module DashboardDataProvider) { param($content, $name) EstimateJobDuration -LogContent $content -JobName $name } $logContent "TestJob-123"
+
+            $duration | Should -BeGreaterThan 0
+            $duration | Should -BeLessOrEqual 300
+        }
+
+        It "Should return reasonable estimate when timestamps are not parseable" {
+            $logContent = @(
+                "Invalid log format",
+                "Another invalid line"
+            )
+
+            $duration = & (Get-Module DashboardDataProvider) { param($content, $name) EstimateJobDuration -LogContent $content -JobName $name } $logContent "SomeJob"
+
+            $duration | Should -BeGreaterThan 0
+        }
+
+        It "Should calculate duration based on job start and completion timestamps" {
+            $logContent = @(
+                "[2025-12-12 14:00:00Z INFO Runner.Worker] Running job: Build-456",
+                "[2025-12-12 14:02:30Z INFO Runner.Worker] Job Build-456 completed with result: Succeeded"
+            )
+
+            $duration = & (Get-Module DashboardDataProvider) { param($content, $name) EstimateJobDuration -LogContent $content -JobName $name } $logContent "Build-456"
+
+            $duration | Should -BeGreaterOrEqual 140
+            $duration | Should -BeLessOrEqual 160
+        }
+    }
+
     Context "Integration with real log path detection" {
         It "Should auto-detect runner log paths" {
             $paths = Get-RunnerLogPaths
