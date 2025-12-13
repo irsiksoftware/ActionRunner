@@ -111,7 +111,7 @@ Describe "detect-capabilities.ps1 - Capability Detection Coverage" {
     }
 
     It "Checks Mobile capability" {
-        $script:Content | Should -Match 'verify-mobile\.ps1'
+        $script:Content | Should -Match 'verify-android\.ps1'
     }
 
     It "Checks Flutter capability" {
@@ -375,8 +375,8 @@ Describe "detect-capabilities.ps1 - Integration with verify scripts" {
             Test-Path (Join-Path $script:ScriptsDir 'verify-desktop.ps1') | Should -Be $true
         }
 
-        It "verify-mobile.ps1 should exist" {
-            Test-Path (Join-Path $script:ScriptsDir 'verify-mobile.ps1') | Should -Be $true
+        It "verify-android.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-android.ps1') | Should -Be $true
         }
 
         It "verify-nodejs.ps1 should exist" {
