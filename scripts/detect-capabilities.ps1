@@ -19,6 +19,8 @@
     - docker capability -> docker label
     - desktop (MAUI/WPF) capability -> desktop label
     - mobile (Android/Flutter/React Native) capability -> mobile label
+    - flutter capability -> flutter label
+    - reactnative capability -> reactnative label
     - gpu/cuda capability -> gpu-cuda label
     - nodejs capability -> nodejs label
     - ios (Xcode/iOS SDK on macOS) capability -> ios label
@@ -347,6 +349,18 @@ if (Test-CapabilityScript -Name "Mobile Development (Android)" -ScriptName "veri
     $script:Results.labels += "android"
     $script:Results.capabilities["mobile"] = $true
     $script:Results.capabilities["android"] = $true
+}
+
+# Check Flutter capability
+if (Test-CapabilityScript -Name "Flutter" -ScriptName "verify-flutter.ps1" -Label "flutter") {
+    $script:Results.labels += "flutter"
+    $script:Results.capabilities["flutter"] = $true
+}
+
+# Check React Native capability
+if (Test-CapabilityScript -Name "React Native" -ScriptName "verify-reactnative.ps1" -Label "reactnative") {
+    $script:Results.labels += "reactnative"
+    $script:Results.capabilities["reactnative"] = $true
 }
 
 # Check GPU/CUDA capability

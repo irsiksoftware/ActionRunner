@@ -114,6 +114,14 @@ Describe "detect-capabilities.ps1 - Capability Detection Coverage" {
         $script:Content | Should -Match 'verify-mobile\.ps1'
     }
 
+    It "Checks Flutter capability" {
+        $script:Content | Should -Match 'verify-flutter\.ps1'
+    }
+
+    It "Checks React Native capability" {
+        $script:Content | Should -Match 'verify-reactnative\.ps1'
+    }
+
     It "Checks GPU/CUDA capability" {
         $script:Content | Should -Match 'Test-GpuCapability'
     }
@@ -150,6 +158,14 @@ Describe "detect-capabilities.ps1 - Label Mapping" {
 
     It "Maps mobile capability to mobile label" {
         $script:Content | Should -Match '-Label "mobile"'
+    }
+
+    It "Maps flutter capability to flutter label" {
+        $script:Content | Should -Match '-Label "flutter"'
+    }
+
+    It "Maps reactnative capability to reactnative label" {
+        $script:Content | Should -Match '-Label "reactnative"'
     }
 
     It "Maps gpu capability to gpu-cuda label" {
@@ -365,6 +381,14 @@ Describe "detect-capabilities.ps1 - Integration with verify scripts" {
 
         It "verify-nodejs.ps1 should exist" {
             Test-Path (Join-Path $script:ScriptsDir 'verify-nodejs.ps1') | Should -Be $true
+        }
+
+        It "verify-flutter.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-flutter.ps1') | Should -Be $true
+        }
+
+        It "verify-reactnative.ps1 should exist" {
+            Test-Path (Join-Path $script:ScriptsDir 'verify-reactnative.ps1') | Should -Be $true
         }
     }
 }
